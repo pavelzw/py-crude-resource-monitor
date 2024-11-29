@@ -4,12 +4,17 @@ use std::collections::HashMap;
 
 pub struct SpyHelper {
     spies: HashMap<py_spy::Pid, PythonSpy>,
+    py_spy_config: Config,
 }
 
 impl SpyHelper {
-    pub fn new(root: py_spy::Pid) -> anyhow::Result<Self> {
+    pub fn new(root: py_spy::Pid, capture_native: bool) -> anyhow::Result<Self> {
         let mut helper = SpyHelper {
             spies: HashMap::new(),
+            py_spy_config: Config {
+                native: capture_native,
+                ..Default::default()
+            },
         };
         helper.track_process(root)?;
 
@@ -56,13 +61,7 @@ impl SpyHelper {
     }
 
     fn track_process(&mut self, pid: py_spy::Pid) -> anyhow::Result<()> {
-        let spy = PythonSpy::new(
-            pid,
-            &Config {
-                native: true,
-                ..Default::default()
-            },
-        )?;
+        let spy = PythonSpy::new(pid, &self.py_spy_config)?;
 
         self.spies.insert(pid, spy);
 

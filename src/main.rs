@@ -26,7 +26,11 @@ struct Args {
     /// output directory
     output_dir: PathBuf,
     /// ms between samples
+    #[arg(short, long)]
     sample_rate: Option<u64>,
+    /// capture native stack traces
+    #[arg(long)]
+    native: bool,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -46,7 +50,7 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    let mut tracker = Tracker::new(args.pid, args.output_dir)?;
+    let mut tracker = Tracker::new(args.pid, args.output_dir, args.native)?;
     while tracker.is_still_tracking() {
         tracker.tick();
         thread::sleep(sample_sleep_duration);

@@ -27,9 +27,9 @@ pub struct Tracker {
 }
 
 impl Tracker {
-    pub fn new(pid: u32, output_dir: PathBuf) -> anyhow::Result<Self> {
+    pub fn new(pid: u32, output_dir: PathBuf, capture_native: bool) -> anyhow::Result<Self> {
         let system = SystemMeasurements::new();
-        let spy_helper = SpyHelper::new(pid as py_spy::Pid)?;
+        let spy_helper = SpyHelper::new(pid as py_spy::Pid, capture_native)?;
 
         let (tx, rx) = mpsc::sync_channel::<WriteRequest>(100);
 
