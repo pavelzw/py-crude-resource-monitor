@@ -1,0 +1,26 @@
+#app {
+  display: flex;
+  flex-wrap: nowrap;
+  flex-direction: row;
+  margin: auto;
+  width: 90dvw;
+  height: 80dvh;
+}
+
+#chartContainer {
+  border: 1px solid rebeccapurple;
+  width: 70dvw;
+  max-width: 70dvw;
+  max-height: 80dvh;
+  max-height: 80dvh;
+}
+
+#stacktraceArea {
+  border: 1px dotted rebeccapurple;
+  width: 15dvw;
+  overflow-y: scroll;
+}
+
+.frames {
+  white-space: pre-wrap;
+}
