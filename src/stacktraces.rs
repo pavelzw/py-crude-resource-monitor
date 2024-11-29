@@ -71,13 +71,21 @@ impl SpyHelper {
     pub fn get_stacktraces(&mut self) -> HashMap<py_spy::Pid, Vec<StackTrace>> {
         let mut all_traces = HashMap::new();
 
+        let mut to_remove = Vec::new();
+
         for spy in self.spies.values_mut() {
             let process_traces = spy.get_stack_traces();
             if let Err(e) = process_traces {
                 info!("Sample error {}: {}", spy.pid, e);
+                // Will be re-added in the next refresh
+                to_remove.push(spy.pid);
                 continue;
             }
             all_traces.insert(spy.pid, process_traces.unwrap());
+        }
+
+        for pid in to_remove {
+            self.spies.remove(&pid);
         }
 
         all_traces
