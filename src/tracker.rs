@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
+use std::time::SystemTime;
 use std::{sync, thread};
 use sync::mpsc;
 
@@ -15,9 +16,16 @@ struct JsonLine {
     stacktraces: Vec<StackTrace>,
     resources: ProcessResources,
     index: usize,
+    time: u128,
 }
 
-type WriteRequest = (PathBuf, ProcessResources, Vec<StackTrace>);
+#[derive(Clone, Debug)]
+struct WriteRequest {
+    output_path: PathBuf,
+    resources: ProcessResources,
+    stacktraces: Vec<StackTrace>,
+    time: u128,
+}
 
 pub struct Tracker {
     spies: SpyHelper,
@@ -36,7 +44,8 @@ impl Tracker {
         thread::spawn(move || {
             let mut file_lines = HashMap::new();
 
-            while let Ok((path, resources, stacktraces)) = rx.recv() {
+            while let Ok(req) = rx.recv() {
+                let path = req.output_path;
                 let line_index = file_lines.entry(path.clone()).or_insert(0);
 
                 trace!("Writing stacktraces to {:?}", path);
@@ -46,9 +55,10 @@ impl Tracker {
                     .open(&path)
                     .unwrap();
                 let line = JsonLine {
-                    stacktraces,
-                    resources,
+                    stacktraces: req.stacktraces,
+                    resources: req.resources,
                     index: *line_index,
+                    time: req.time,
                 };
                 file.write_all(serde_json::to_string(&line).unwrap().as_bytes())
                     .expect("Write succeeds");
@@ -74,6 +84,11 @@ impl Tracker {
         self.system.refresh();
         self.spies.refresh();
 
+        let query_time = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+
         for (pid, threads) in self.spies.get_stacktraces() {
             let Some(info) = self
                 .system
@@ -83,11 +98,12 @@ impl Tracker {
             };
 
             self.writer_channel
-                .send((
-                    self.output_dir.join(format!("{}.json", pid)),
-                    info,
-                    threads.clone(),
-                ))
+                .send(WriteRequest {
+                    output_path: self.output_dir.join(format!("{}.json", pid)),
+                    resources: info,
+                    stacktraces: threads.clone(),
+                    time: query_time,
+                })
                 .expect("Send succeeds");
         }
     }
