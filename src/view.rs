@@ -3,6 +3,7 @@ use axum::http::{header, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
+use log::info;
 use rust_embed::Embed;
 use std::path::PathBuf;
 use tower::ServiceExt;
@@ -12,7 +13,7 @@ use tower_http::services::ServeDir;
 #[folder = "frontend/dist/"]
 struct Asset;
 
-pub async fn run_view(output_dir: PathBuf, port: u16) -> anyhow::Result<()> {
+pub async fn run_view(output_dir: PathBuf, interface: &str, port: u16) -> anyhow::Result<()> {
     let app = Router::new()
         // nest to ensure the prefix is stripped
         .nest(
@@ -23,7 +24,11 @@ pub async fn run_view(output_dir: PathBuf, port: u16) -> anyhow::Result<()> {
         .route("/*file", get(serve_frontend))
         .with_state(output_dir);
 
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
+    let listen_address = format!("{interface}:{port}");
+    info!("Listening on {listen_address}");
+    info!("This probably resolves to http://localhost:{port}");
+
+    let listener = tokio::net::TcpListener::bind(listen_address).await?;
     axum::serve(listener, app).await?;
 
     Ok(())

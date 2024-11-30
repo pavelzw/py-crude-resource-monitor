@@ -50,6 +50,9 @@ enum Subcommands {
         /// The port to listen on
         #[arg(long, default_value = "3000")]
         port: u16,
+        /// The interface to listen on
+        #[arg(long, default_value = "0.0.0.0")]
+        interface: String,
     },
 }
 
@@ -67,7 +70,11 @@ fn main() -> anyhow::Result<()> {
             sample_rate,
             native,
         } => run_profile(pid, output_dir, sample_rate, native),
-        Subcommands::View { output_dir , port } => run_view(output_dir, port),
+        Subcommands::View {
+            output_dir,
+            interface,
+            port,
+        } => run_view(output_dir, &interface, port),
     }
 }
 
@@ -136,9 +143,9 @@ fn clear_data_dir(dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_view(output_dir: PathBuf, port: u16) -> anyhow::Result<()> {
+fn run_view(output_dir: PathBuf, interface: &str, port: u16) -> anyhow::Result<()> {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
-        .block_on(view::run_view(output_dir, port))
+        .block_on(view::run_view(output_dir, interface, port))
 }
