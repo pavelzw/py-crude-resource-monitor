@@ -7,6 +7,7 @@ use log::info;
 use rust_embed::Embed;
 use std::path::PathBuf;
 use tower::ServiceExt;
+use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
 #[derive(Embed)]
@@ -22,6 +23,7 @@ pub async fn run_view(output_dir: PathBuf, interface: &str, port: u16) -> anyhow
         )
         .route("/", get(|| async { FrontendStaticFile("index.html") }))
         .route("/*file", get(serve_frontend))
+        .layer(CorsLayer::very_permissive())
         .with_state(output_dir);
 
     let listen_address = format!("{interface}:{port}");

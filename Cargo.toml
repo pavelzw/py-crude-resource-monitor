@@ -17,5 +17,5 @@ tokio = { version = "1.41.1", features = ["full"] }
 axum = { version = "0.7.9", features = ["macros"] }
 rust-embed = "8.5.0"
 mime_guess = "2.0.5"
-tower-http = { version = "0.6.2", features = ["fs"] }
+tower-http = { version = "0.6.2", features = ["cors", "fs"] }
 tower = { version = "0.5.1", features = ["util"] }
