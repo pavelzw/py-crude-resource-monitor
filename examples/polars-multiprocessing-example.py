@@ -43,6 +43,10 @@ def do_stuff_with_polars(i: int):
 
 print(os.getpid())
 
+generate_data(50_000)
+
 with Pool(5) as p:
     generate_data(100_000)  # some busywork
     p.map(do_stuff_with_polars, list(range(1, 11)))
+
+generate_data(50_000)
