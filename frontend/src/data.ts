@@ -45,6 +45,12 @@ export type ProcessReport = {
 
 export type CompleteReport = ProcessReport[];
 
+export type PlotData = {
+  reports: ProcessReport[];
+  xData: number[];
+  yData: (number | null)[][];
+};
+
 export function parseJsonProcessReport(
   id: ProcessId,
   reportString: string
@@ -94,11 +100,7 @@ export function processReportToSeries(
   };
 }
 
-export function completeReportToSeries(reports: CompleteReport): {
-  reports: ProcessReport[];
-  xData: number[];
-  yData: (number | null)[][];
-} {
+export function completeReportToSeries(reports: CompleteReport): PlotData {
   const seriesArray = [];
   const reportArray = [];
   const xAxisTimes = getxAxisTimes(reports);
@@ -154,4 +156,4 @@ export const SAMPLE_REPORT = `{"stacktraces":[{"pid":1500937,"thread_id":1386773
 {"stacktraces":[{"pid":1500937,"thread_id":138677306980160,"thread_name":"MainThread","os_thread_id":1500937,"active":true,"owns_gil":true,"frames":[{"name":"choices_distribution","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/utils/distribution.py","module":null,"short_filename":"faker/utils/distribution.py","line":73,"locals":null,"is_entry":false},{"name":"random_elements","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/providers/__init__.py","module":null,"short_filename":"faker/providers/__init__.py","line":500,"locals":null,"is_entry":false},{"name":"random_element","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/providers/__init__.py","module":null,"short_filename":"faker/providers/__init__.py","line":552,"locals":null,"is_entry":false},{"name":"last_name","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/providers/person/__init__.py","module":null,"short_filename":"faker/providers/person/__init__.py","line":212,"locals":null,"is_entry":false},{"name":"format","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/generator.py","module":null,"short_filename":"faker/generator.py","line":88,"locals":null,"is_entry":false},{"name":"__format_token","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/generator.py","module":null,"short_filename":"faker/generator.py","line":189,"locals":null,"is_entry":false},{"name":"parse","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/generator.py","module":null,"short_filename":"faker/generator.py","line":175,"locals":null,"is_entry":false},{"name":"name","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/providers/person/__init__.py","module":null,"short_filename":"faker/providers/person/__init__.py","line":206,"locals":null,"is_entry":false},{"name":"generate_data","filename":"/home/i_al_istannen/src/python/py-crude-resource-monitor/examples/polars-example.py","module":null,"short_filename":"polars-example.py","line":15,"locals":null,"is_entry":false},{"name":"<module>","filename":"/home/i_al_istannen/src/python/py-crude-resource-monitor/examples/polars-example.py","module":null,"short_filename":"polars-example.py","line":29,"locals":null,"is_entry":false}],"process_info":null}],"resources":{"memory":67600384,"cpu":94.168465,"cpu_global":68.89848},"index":19,"time":1732966923065}
 {"stacktraces":[{"pid":1500937,"thread_id":138677306980160,"thread_name":"MainThread","os_thread_id":1500937,"active":true,"owns_gil":true,"frames":[{"name":"generate_data","filename":"/home/i_al_istannen/src/python/py-crude-resource-monitor/examples/polars-example.py","module":null,"short_filename":"polars-example.py","line":24,"locals":null,"is_entry":false},{"name":"<module>","filename":"/home/i_al_istannen/src/python/py-crude-resource-monitor/examples/polars-example.py","module":null,"short_filename":"polars-example.py","line":29,"locals":null,"is_entry":false}],"process_info":null}],"resources":{"memory":68255744,"cpu":96.567,"cpu_global":61.794018},"index":20,"time":1732966924165}
 {"stacktraces":[{"pid":1500937,"thread_id":138677306980160,"thread_name":"MainThread","os_thread_id":1500937,"active":true,"owns_gil":true,"frames":[{"name":"<module>","filename":"/home/i_al_istannen/src/python/py-crude-resource-monitor/examples/polars-example.py","module":null,"short_filename":"polars-example.py","line":29,"locals":null,"is_entry":false}],"process_info":null}],"resources":{"memory":161103872,"cpu":100.801834,"cpu_global":51.890034},"index":21,"time":1732966925272}
-`
+`;
