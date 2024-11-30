@@ -3,17 +3,16 @@ import { z } from "zod";
 export const ProcessResourceSchema = z.object({
   memory: z.number(),
   cpu: z.number(),
-  cpu_global: z.number(),
 });
 export type ProcessResource = z.infer<typeof ProcessResourceSchema>;
 
 export const StackFrameSchema = z.object({
   name: z.string(),
   filename: z.string(),
-  module: z.null(),
+  module: z.string().nullable(),
   short_filename: z.string(),
   line: z.number(),
-  locals: z.null(),
+  locals: z.null(), // TODO: What is this
   is_entry: z.boolean(),
 });
 export type StackFrame = z.infer<typeof StackFrameSchema>;
@@ -21,12 +20,12 @@ export type StackFrame = z.infer<typeof StackFrameSchema>;
 export const ThreadDumpSchema = z.object({
   pid: z.number(),
   thread_id: z.number(),
-  thread_name: z.null(),
+  thread_name: z.string().nullable(),
   os_thread_id: z.number(),
   active: z.boolean(),
   owns_gil: z.boolean(),
   frames: z.array(StackFrameSchema),
-  process_info: z.null(),
+  process_info: z.null(), // TODO: What is this?
 });
 export type ThreadDump = z.infer<typeof ThreadDumpSchema>;
 
