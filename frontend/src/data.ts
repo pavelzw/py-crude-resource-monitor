@@ -134,6 +134,33 @@ function getxAxisTimes(reports: CompleteReport) {
   return asArray;
 }
 
+function baseUrl(): string {
+  if (window.location.port === "5173") {
+    return "http://localhost:3000";
+  }
+  return "";
+}
+
+export async function fetchReportNames(): Promise<string[]> {
+  const response = await fetch(`${baseUrl()}/view/profiles.json`);
+  if (response.status !== 200) {
+    console.log(response.status);
+    alert("Error fetching server reports");
+    console.log(await response.text);
+  }
+  return z.array(z.string()).parse(await response.json());
+}
+
+export async function fetchReportByName(name: string) {
+  const response = await fetch(`${baseUrl()}/view/${name}`);
+  if (response.status !== 200) {
+    console.log(response.status);
+    alert(`Error fetching report ${name}`);
+    console.log(await response.text);
+  }
+  return parseJsonProcessReport(name, await response.text());
+}
+
 export const SAMPLE_REPORT = `{"stacktraces":[{"pid":1500937,"thread_id":138677306980160,"thread_name":"MainThread","os_thread_id":1500937,"active":true,"owns_gil":true,"frames":[{"name":"random_elements","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/providers/__init__.py","module":null,"short_filename":"faker/providers/__init__.py","line":492,"locals":null,"is_entry":false},{"name":"random_element","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/providers/__init__.py","module":null,"short_filename":"faker/providers/__init__.py","line":552,"locals":null,"is_entry":false},{"name":"first_name_male","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/providers/person/__init__.py","module":null,"short_filename":"faker/providers/person/__init__.py","line":240,"locals":null,"is_entry":false},{"name":"format","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/generator.py","module":null,"short_filename":"faker/generator.py","line":88,"locals":null,"is_entry":false},{"name":"__format_token","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/generator.py","module":null,"short_filename":"faker/generator.py","line":189,"locals":null,"is_entry":false},{"name":"parse","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/generator.py","module":null,"short_filename":"faker/generator.py","line":175,"locals":null,"is_entry":false},{"name":"name","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/providers/person/__init__.py","module":null,"short_filename":"faker/providers/person/__init__.py","line":206,"locals":null,"is_entry":false},{"name":"generate_data","filename":"/home/i_al_istannen/src/python/py-crude-resource-monitor/examples/polars-example.py","module":null,"short_filename":"polars-example.py","line":15,"locals":null,"is_entry":false},{"name":"<module>","filename":"/home/i_al_istannen/src/python/py-crude-resource-monitor/examples/polars-example.py","module":null,"short_filename":"polars-example.py","line":29,"locals":null,"is_entry":false}],"process_info":null}],"resources":{"memory":51740672,"cpu":0.0,"cpu_global":19.53872},"index":0,"time":1732966901720}
 {"stacktraces":[{"pid":1500937,"thread_id":138677306980160,"thread_name":"MainThread","os_thread_id":1500937,"active":true,"owns_gil":true,"frames":[{"name":"__format_token","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/generator.py","module":null,"short_filename":"faker/generator.py","line":191,"locals":null,"is_entry":false},{"name":"parse","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/generator.py","module":null,"short_filename":"faker/generator.py","line":175,"locals":null,"is_entry":false},{"name":"name","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/providers/person/__init__.py","module":null,"short_filename":"faker/providers/person/__init__.py","line":206,"locals":null,"is_entry":false},{"name":"generate_data","filename":"/home/i_al_istannen/src/python/py-crude-resource-monitor/examples/polars-example.py","module":null,"short_filename":"polars-example.py","line":15,"locals":null,"is_entry":false},{"name":"<module>","filename":"/home/i_al_istannen/src/python/py-crude-resource-monitor/examples/polars-example.py","module":null,"short_filename":"polars-example.py","line":29,"locals":null,"is_entry":false}],"process_info":null}],"resources":{"memory":53444608,"cpu":86.4,"cpu_global":28.9},"index":1,"time":1732966902801}
 {"stacktraces":[{"pid":1500937,"thread_id":138677306980160,"thread_name":"MainThread","os_thread_id":1500937,"active":true,"owns_gil":true,"frames":[{"name":"__format_token","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/generator.py","module":null,"short_filename":"faker/generator.py","line":191,"locals":null,"is_entry":false},{"name":"parse","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/generator.py","module":null,"short_filename":"faker/generator.py","line":175,"locals":null,"is_entry":false},{"name":"name","filename":"/nix/store/wxc13l8mxgz6hnfq87anm9i9v0r0ascd-python3.12-faker-25.8.0/lib/python3.12/site-packages/faker/providers/person/__init__.py","module":null,"short_filename":"faker/providers/person/__init__.py","line":206,"locals":null,"is_entry":false},{"name":"generate_data","filename":"/home/i_al_istannen/src/python/py-crude-resource-monitor/examples/polars-example.py","module":null,"short_filename":"polars-example.py","line":15,"locals":null,"is_entry":false},{"name":"<module>","filename":"/home/i_al_istannen/src/python/py-crude-resource-monitor/examples/polars-example.py","module":null,"short_filename":"polars-example.py","line":29,"locals":null,"is_entry":false}],"process_info":null}],"resources":{"memory":54099968,"cpu":102.34742,"cpu_global":47.887325},"index":2,"time":1732966903917}

@@ -1,21 +1,28 @@
 import "uplot/dist/uPlot.min.css";
 import {
+  CompleteReport,
   completeReportToSeries,
-  parseJsonProcessReport,
-  SAMPLE_REPORT,
+  fetchReportByName,
+  fetchReportNames,
 } from "./data";
 import { buildPlot } from "./plot";
 import "./style.css";
 
-const report = parseJsonProcessReport("2432", SAMPLE_REPORT);
-const completeReport = [report];
+(async () => {
+  const stackTraceArea = document.getElementById("stacktraceArea")!;
 
-const uplotData = completeReportToSeries(completeReport);
+  stackTraceArea.textContent = "Fetching report names..."
+  const reportNames = await fetchReportNames();
 
-let uplot = buildPlot(uplotData);
+  const reports = [];
+  for (const name of reportNames) {
+    stackTraceArea.textContent += `\nFetching report ${name}`
+    reports.push(await fetchReportByName(name));
+  }
 
-const observer = new ResizeObserver(() => {
-  const container = document.getElementById("chartContainer")!;
-  uplot.setSize(container.getBoundingClientRect());
-});
-observer.observe(document.getElementById("chartContainer")!);
+  stackTraceArea.textContent += "\n\nBuilding Graph series"
+  const uplotData = completeReportToSeries(reports as CompleteReport);
+
+  stackTraceArea.textContent += "\n\nDisplaying plot"
+  buildPlot(uplotData);
+})();
