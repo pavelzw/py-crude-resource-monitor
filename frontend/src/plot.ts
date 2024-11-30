@@ -1,6 +1,7 @@
 import uPlot from "uplot";
 import { PlotData, ProcessReport } from "./data";
 import { binarySearch } from "./util";
+import { generateColors } from "./colors";
 
 function displayStackframePlugin(plotData: PlotData): uPlot.Plugin {
   let dataIdx: null | number = null;
@@ -63,7 +64,7 @@ function displayStackframePlugin(plotData: PlotData): uPlot.Plugin {
   };
 }
 
-function buildMemorySeries(report: ProcessReport): uPlot.Series {
+function buildMemorySeries(report: ProcessReport, color: string): uPlot.Series {
   return {
     show: true,
 
@@ -76,13 +77,12 @@ function buildMemorySeries(report: ProcessReport): uPlot.Series {
       rawValue === null ? "--" : (rawValue / 1024 / 1024).toFixed(1) + "MiB",
 
     // series style
-    stroke: "red",
+    stroke: color,
     width: 1,
-    dash: [5],
   };
 }
 
-function buildCpuSeries(report: ProcessReport): uPlot.Series {
+function buildCpuSeries(report: ProcessReport, color: string): uPlot.Series {
   return {
     show: true,
 
@@ -95,14 +95,15 @@ function buildCpuSeries(report: ProcessReport): uPlot.Series {
       rawValue === null ? "--" : rawValue.toFixed(0) + "%",
 
     // series style
-    stroke: "blue",
+    stroke: color,
     width: 1,
+    dash: [5],
   };
 }
 
-function buildPlotOptions(plotData: PlotData): uPlot.Options {
+function buildPlotOptions(plotData: PlotData, colors: string[]): uPlot.Options {
   const options: uPlot.Options = {
-    title: "My Chart",
+    title: "Resource Usage",
     id: "chart1",
     class: "my-chart",
     width: 800,
@@ -143,17 +144,21 @@ function buildPlotOptions(plotData: PlotData): uPlot.Options {
     plugins: [displayStackframePlugin(plotData)],
   };
 
+  let counter = 0
   for (const report of plotData.reports) {
-    options.series.push(buildCpuSeries(report));
-    options.series.push(buildMemorySeries(report));
+    options.series.push(buildCpuSeries(report, colors[counter]));
+    options.series.push(buildMemorySeries(report, colors[counter]));
+
+    counter += 1
   }
 
   return options;
 }
 
 export function buildPlot(plotData: PlotData): uPlot {
+  const colors = generateColors(plotData.yData.length)
   const plot = new uPlot(
-    buildPlotOptions(plotData),
+    buildPlotOptions(plotData, colors),
     [plotData.xData.map((it) => it / 1000), ...plotData.yData],
     document.getElementById("chartContainer")!
   );

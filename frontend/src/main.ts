@@ -2,7 +2,7 @@ import "uplot/dist/uPlot.min.css";
 import {
   completeReportToSeries,
   parseJsonProcessReport,
-  SAMPLE_REPORT
+  SAMPLE_REPORT,
 } from "./data";
 import { buildPlot } from "./plot";
 import "./style.css";
