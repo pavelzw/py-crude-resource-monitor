@@ -1,12 +1,13 @@
 mod resources;
 mod stacktraces;
 mod tracker;
+mod view;
 
 use crate::tracker::Tracker;
 use anyhow::bail;
 use clap::builder::styling::AnsiColor;
 use clap::builder::Styles;
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Confirm;
 use log::{debug, info};
@@ -24,16 +25,32 @@ const CLAP_STYLE: Styles = Styles::styled()
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None, styles = CLAP_STYLE)]
 struct Args {
-    /// The PID of the Python process to monitor
-    pid: u32,
-    /// output directory
-    output_dir: PathBuf,
-    /// ms between samples
-    #[arg(short, long)]
-    sample_rate: Option<u64>,
-    /// capture native stack traces
-    #[arg(long)]
-    native: bool,
+    #[command(subcommand)]
+    command: Subcommands,
+}
+
+#[derive(Subcommand, Debug)]
+enum Subcommands {
+    /// Profile
+    Profile {
+        /// The PID of the Python process to monitor
+        pid: u32,
+        /// output directory
+        output_dir: PathBuf,
+        /// ms between samples
+        #[arg(short, long)]
+        sample_rate: Option<u64>,
+        /// capture native stack traces
+        #[arg(long)]
+        native: bool,
+    },
+    View {
+        /// output directory
+        output_dir: PathBuf,
+        /// The port to listen on
+        #[arg(long, default_value = "3000")]
+        port: u16,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -42,18 +59,41 @@ fn main() -> anyhow::Result<()> {
     );
 
     let args = Args::parse();
-    let sample_sleep_duration = Duration::from_millis(args.sample_rate.unwrap_or(1000));
 
-    std::fs::create_dir_all(&args.output_dir)?;
-    clear_data_dir(&args.output_dir)?;
+    match args.command {
+        Subcommands::Profile {
+            pid,
+            output_dir,
+            sample_rate,
+            native,
+        } => run_profile(pid, output_dir, sample_rate, native),
+        Subcommands::View { output_dir , port } => run_view(output_dir, port),
+    }
+}
 
-    let mut tracker = Tracker::new(args.pid, args.output_dir, args.native)?;
+fn run_profile(
+    pid: u32,
+    output_dir: PathBuf,
+    sample_rate: Option<u64>,
+    native: bool,
+) -> anyhow::Result<()> {
+    let sample_sleep_duration = Duration::from_millis(sample_rate.unwrap_or(1000));
+
+    std::fs::create_dir_all(&output_dir)?;
+    clear_data_dir(&output_dir)?;
+
+    let mut tracker = Tracker::new(pid, output_dir.clone(), native)?;
     while tracker.is_still_tracking() {
         tracker.tick();
         thread::sleep(sample_sleep_duration);
     }
 
     info!("All processes have exited, exiting");
+    info!(
+        "View the profile data by running `{} view {:?}`",
+        std::env::current_exe()?.to_string_lossy(),
+        output_dir.to_string_lossy()
+    );
 
     Ok(())
 }
@@ -71,10 +111,16 @@ fn clear_data_dir(dir: &Path) -> anyhow::Result<()> {
         .iter()
         .map(|f| f.path().to_string_lossy().to_string())
         .collect::<Vec<_>>();
-    let file_names = file_names.join(", ");
+
+    if files.is_empty() {
+        return Ok(());
+    }
 
     let confirm = Confirm::with_theme(&ColorfulTheme::default())
-        .with_prompt(format!("Are you sure you want to delete {}?", file_names))
+        .with_prompt(format!(
+            "Are you sure you want to delete {}?",
+            file_names.join(", ")
+        ))
         .default(false)
         .interact()?;
 
@@ -88,4 +134,11 @@ fn clear_data_dir(dir: &Path) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+fn run_view(output_dir: PathBuf, port: u16) -> anyhow::Result<()> {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?
+        .block_on(view::run_view(output_dir, port))
 }
