@@ -76,15 +76,23 @@ export function processReportToSeries(
 ): { cpuValues: (number | null)[]; memoryValues: (number | null)[] } {
   let memoryValues = [];
   let cpuValues = [];
-  let currentTime = xAxisTimes[0];
+  let currentTimeIndex = 0;
 
   // Pad with nulls until our time has come
-  while (currentTime < report.entries[0].time) {
+  while (xAxisTimes[currentTimeIndex] < report.entries[0].time) {
     memoryValues.push(null);
     cpuValues.push(null);
+    currentTimeIndex++;
   }
   // Copy over the entries
   for (const entry of report.entries) {
+    // If there are any gaps (because sampling failed), we need to fill them with nulls
+    while (entry.time < xAxisTimes[currentTimeIndex]) {
+      memoryValues.push(null);
+      cpuValues.push(null);
+      currentTimeIndex++;
+    }
+
     memoryValues.push(entry.resources.memory);
     cpuValues.push(entry.resources.cpu);
   }
