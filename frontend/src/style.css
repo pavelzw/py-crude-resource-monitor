@@ -8,7 +8,6 @@
 }
 
 #chartContainer {
-  border: 1px solid rebeccapurple;
   width: 70dvw;
 
   margin-right: 1em;
@@ -18,9 +17,11 @@
 
 #stacktraceArea {
   border: 1px dotted rebeccapurple;
+  border-radius: 5px;
   width: 100%;
   overflow-y: scroll;
   white-space: pre-wrap;
+  padding: 1ch;
 
   h3 {
     margin: 0;
@@ -32,4 +33,10 @@
     margin-bottom: 0.5rem;
     margin-left: 1ch;
   }
+}
+
+#plotOptions {
+  position: absolute;
+  right: 1em;
+  margin-top: 1em;
 }

@@ -26,7 +26,9 @@ function displayStackframePlugin(plotData: PlotData): uPlot.Plugin {
     if (index < 0) {
       return;
     }
-    const threads = report.entries[index].stacktraces;
+    // Sort them by ID to have the main thread appear first
+    const threads = report.entries[index].stacktraces.slice();
+    threads.sort((a, b) => b.thread_id - a.thread_id);
 
     let content = "";
     for (const thread of threads) {
@@ -144,19 +146,23 @@ function buildPlotOptions(plotData: PlotData, colors: string[]): uPlot.Options {
     plugins: [displayStackframePlugin(plotData)],
   };
 
-  let counter = 0
+  const reports = plotData.reports.slice();
+  // Sort them to allow easy visual binary search
+  reports.sort((a, b) => a.id.localeCompare(b.id));
+
+  let counter = 0;
   for (const report of plotData.reports) {
     options.series.push(buildCpuSeries(report, colors[counter]));
     options.series.push(buildMemorySeries(report, colors[counter]));
 
-    counter += 1
+    counter += 1;
   }
 
   return options;
 }
 
 export function buildPlot(plotData: PlotData): uPlot {
-  const colors = generateColors(plotData.yData.length)
+  const colors = generateColors(plotData.yData.length);
   const plot = new uPlot(
     buildPlotOptions(plotData, colors),
     [plotData.xData.map((it) => it / 1000), ...plotData.yData],
@@ -168,6 +174,26 @@ export function buildPlot(plotData: PlotData): uPlot {
     plot.setSize(container.getBoundingClientRect());
   });
   observer.observe(document.getElementById("chartContainer")!);
+
+  document.getElementById("plotOptionToggleAll")!.onclick = () => {
+    const allShown = plot.series.every((it) => it.show);
+
+    let newState = allShown ? false : true;
+    for (let i = 0; i < plot.series.length; i++) {
+      plot.setSeries(i, { show: newState });
+    }
+  };
+
+  document.getElementById("plotOptionsOnlyMem")!.onclick = () => {
+    for (let i = 0; i < plot.series.length; i++) {
+      plot.setSeries(i, { show: plot.series[i].label?.includes("RAM") });
+    }
+  };
+  document.getElementById("plotOptionsOnlyCpu")!.onclick = () => {
+    for (let i = 0; i < plot.series.length; i++) {
+      plot.setSeries(i, { show: plot.series[i].label?.includes("CPU") });
+    }
+  };
 
   return plot;
 }
