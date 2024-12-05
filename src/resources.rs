@@ -29,7 +29,7 @@ impl SystemMeasurements {
                         .with_memory()
                         .with_cmd(UpdateKind::Always),
                 )
-                .with_memory(MemoryRefreshKind::new().without_swap()),
+                .with_memory(MemoryRefreshKind::new().with_ram()),
         );
     }
 
@@ -43,5 +43,13 @@ impl SystemMeasurements {
             memory,
             cpu: cpu_usage,
         })
+    }
+
+    pub fn get_global_info(&mut self) -> ProcessResources {
+        let memory = self.system.used_memory();
+        // We want to normalize the cpu usage so that 100% is only one core
+        let cpu = self.system.global_cpu_usage() * self.system.cpus().len() as f32;
+
+        ProcessResources { memory, cpu }
     }
 }

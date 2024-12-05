@@ -106,5 +106,14 @@ impl Tracker {
                 })
                 .expect("Send succeeds");
         }
+
+        self.writer_channel
+            .send(WriteRequest {
+                output_path: self.output_dir.join("global.json"),
+                resources: self.system.get_global_info(),
+                stacktraces: vec![],
+                time: query_time,
+            })
+            .expect("Send succeeds");
     }
 }
