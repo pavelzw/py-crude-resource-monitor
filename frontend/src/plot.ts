@@ -158,7 +158,17 @@ function buildPlotOptions(plotData: PlotData, colors: string[]): uPlot.Options {
     counter += 1;
   }
 
+  for (const series of options.series) {
+    if (isGlobalSeries(series)) {
+      series.show = false;
+    }
+  }
+
   return options;
+}
+
+function isGlobalSeries(series: uPlot.Series): boolean {
+  return !!series.label?.includes("global.json")
 }
 
 export function buildPlot(plotData: PlotData): uPlot {
@@ -176,22 +186,24 @@ export function buildPlot(plotData: PlotData): uPlot {
   observer.observe(document.getElementById("chartContainer")!);
 
   document.getElementById("plotOptionToggleAll")!.onclick = () => {
-    const allShown = plot.series.every((it) => it.show);
+    const allShown = plot.series.filter(it => !isGlobalSeries(it)).every((it) => it.show);
 
     let newState = allShown ? false : true;
     for (let i = 0; i < plot.series.length; i++) {
-      plot.setSeries(i, { show: newState });
+      plot.setSeries(i, { show: newState && !isGlobalSeries(plot.series[i]) });
     }
   };
 
   document.getElementById("plotOptionsOnlyMem")!.onclick = () => {
     for (let i = 0; i < plot.series.length; i++) {
-      plot.setSeries(i, { show: plot.series[i].label?.includes("RAM") });
+      const series = plot.series[i];
+      plot.setSeries(i, { show: series.label?.includes("RAM") && !isGlobalSeries(series) });
     }
   };
   document.getElementById("plotOptionsOnlyCpu")!.onclick = () => {
     for (let i = 0; i < plot.series.length; i++) {
-      plot.setSeries(i, { show: plot.series[i].label?.includes("CPU") });
+      const series = plot.series[i];
+      plot.setSeries(i, { show: series.label?.includes("CPU") && !isGlobalSeries(series) });
     }
   };
 
