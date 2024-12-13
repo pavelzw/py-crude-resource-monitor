@@ -34,7 +34,8 @@ jobs:
       - name: Install dependencies
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt-get install libunwind-dev -y
+          sudo apt-get update
+          sudo apt-get install libunwind-dev musl-tools build-essential -y
 
       - name: Check whether optimizing build
         id: metadata
