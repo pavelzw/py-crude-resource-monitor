@@ -46,6 +46,11 @@ jobs:
         with:
           key: build-${{ matrix.target }}-${{ steps.metadata.outputs.optimize-build }}-${{ matrix.os }}
 
+      - if: matrix.os == 'windows-latest'
+        name: Install MSVC
+        run: |
+          where pnpm
+
       - name: Build
         run: |
           cargo build --profile ${{ steps.metadata.outputs.optimize-build && 'release-min-size' || 'release'}}${{ endsWith(matrix.target, 'unknown-linux-musl') && ' --features unwind' || '' }} --color always --target ${{ matrix.target }}
