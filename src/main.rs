@@ -40,7 +40,12 @@ enum Subcommands {
         /// ms between samples
         #[arg(short, long)]
         sample_rate: Option<u64>,
+        #[cfg(feature = "unwind")]
         /// capture native stack traces
+        #[arg(long)]
+        native: bool,
+        #[cfg(not(feature = "unwind"))]
+        /// capture native stack traces (not compiled, enable with `unwind` build feature)
         #[arg(long)]
         native: bool,
     },
@@ -84,6 +89,10 @@ fn run_profile(
     sample_rate: Option<u64>,
     native: bool,
 ) -> anyhow::Result<()> {
+    if native && !cfg!(feature = "unwind") {
+        bail!("This binary was compiled without support for capturing native stacktraces");
+    }
+
     let sample_sleep_duration = Duration::from_millis(sample_rate.unwrap_or(1000));
 
     std::fs::create_dir_all(&output_dir)?;
