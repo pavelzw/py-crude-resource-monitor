@@ -1,13 +1,15 @@
 use std::process::Command;
 
 fn main() {
-    Command::new("pnpm")
+    let pnpm_executable = if cfg!(windows) { "pnpm.cmd" } else { "pnpm" };
+
+    Command::new(pnpm_executable)
         .args(["install"])
         .current_dir("frontend")
         .status()
         .expect("Failed to run pnpm install");
 
-    Command::new("pnpm")
+    Command::new(pnpm_executable)
         .args(["build"])
         .current_dir("frontend")
         .status()
