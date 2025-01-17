@@ -176,7 +176,9 @@ fn run_profile(
     let (pid, _child) = start_profiling_target(pid, command)?;
     info!("Monitoring process with PID {pid}");
 
-    let mut tracker = Tracker::new(pid, output_dir.clone(), native).context(TrackerSnafu)?;
+    let mut tracker =
+        Tracker::new_with_retry(pid, output_dir.clone(), native).context(TrackerSnafu)?;
+    info!("Tracking started");
     while tracker.is_still_tracking() {
         tracker.tick();
         thread::sleep(sample_sleep_duration);

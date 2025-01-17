@@ -1,6 +1,6 @@
 use crate::resources::{ProcessResources, SystemMeasurements};
 use crate::stacktraces::{PySpyError, SpyHelper};
-use log::trace;
+use log::{trace, warn};
 use py_spy::StackTrace;
 use serde::Serialize;
 use snafu::{Location, ResultExt, Snafu};
@@ -46,7 +46,26 @@ pub struct Tracker {
 }
 
 impl Tracker {
-    pub fn new(pid: u32, output_dir: PathBuf, capture_native: bool) -> Result<Self, TrackerError> {
+    pub fn new_with_retry(
+        pid: u32,
+        output_dir: PathBuf,
+        capture_native: bool,
+    ) -> Result<Self, TrackerError> {
+        let mut last_err = None;
+        for _ in 0..5 {
+            match Self::new(pid, output_dir.clone(), capture_native) {
+                Ok(tracker) => return Ok(tracker),
+                Err(e) => {
+                    warn!("Got error during attach, will retry. ({})", e);
+                    last_err = Some(e);
+                }
+            }
+            thread::sleep(std::time::Duration::from_secs(1));
+        }
+        Err(last_err.unwrap())
+    }
+
+    fn new(pid: u32, output_dir: PathBuf, capture_native: bool) -> Result<Self, TrackerError> {
         let system = SystemMeasurements::new();
         let spy_helper = SpyHelper::new(pid as py_spy::Pid, capture_native).context(PySpySnafu)?;
 
