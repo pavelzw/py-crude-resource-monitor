@@ -7,11 +7,12 @@ use crate::tracker::Tracker;
 use anyhow::bail;
 use clap::builder::styling::AnsiColor;
 use clap::builder::Styles;
-use clap::{Parser, Subcommand};
+use clap::{ArgGroup, Parser, Subcommand};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Confirm;
-use log::{debug, info};
+use log::{debug, info, warn};
 use std::path::{Path, PathBuf};
+use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::Duration;
 
@@ -31,11 +32,17 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 enum Subcommands {
-    /// Profile
+    /// Profile a Python process
+    #[clap(group(ArgGroup::new("target").required(true).args(&["pid", "command"])))]
     Profile {
         /// The PID of the Python process to monitor
-        pid: u32,
+        #[arg(short, long)]
+        pid: Option<u32>,
+        /// The command to execute
+        #[clap(conflicts_with = "pid")]
+        command: Option<Vec<String>>,
         /// output directory
+        #[arg(short, long)]
         output_dir: PathBuf,
         /// ms between samples
         #[arg(short, long)]
@@ -49,6 +56,7 @@ enum Subcommands {
         #[arg(long)]
         native: bool,
     },
+    /// Host a web server to view the profile data
     View {
         /// output directory
         output_dir: PathBuf,
@@ -74,7 +82,8 @@ fn main() -> anyhow::Result<()> {
             output_dir,
             sample_rate,
             native,
-        } => run_profile(pid, output_dir, sample_rate, native),
+            command,
+        } => run_profile(pid, command, output_dir, sample_rate, native),
         Subcommands::View {
             output_dir,
             interface,
@@ -84,7 +93,8 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn run_profile(
-    pid: u32,
+    pid: Option<u32>,
+    command: Option<Vec<String>>,
     output_dir: PathBuf,
     sample_rate: Option<u64>,
     native: bool,
@@ -98,6 +108,9 @@ fn run_profile(
     std::fs::create_dir_all(&output_dir)?;
     clear_data_dir(&output_dir)?;
 
+    let (pid, _child) = start_profiling_target(pid, command)?;
+    info!("Monitoring process with PID {pid}");
+
     let mut tracker = Tracker::new(pid, output_dir.clone(), native)?;
     while tracker.is_still_tracking() {
         tracker.tick();
@@ -106,12 +119,36 @@ fn run_profile(
 
     info!("All processes have exited, exiting");
     info!(
-        "View the profile data by running `{} view {:?}`",
+        "View the profile data by running `{} view {}`",
         std::env::current_exe()?.to_string_lossy(),
-        output_dir.to_string_lossy()
+        output_dir.display()
     );
-
     Ok(())
+}
+
+fn start_profiling_target(
+    pid: Option<u32>,
+    command: Option<Vec<String>>,
+) -> anyhow::Result<(u32, Option<KillOnDrop>)> {
+    // We are profiling an existing process by pid, so nothing to do here
+    if let Some(pid) = pid {
+        return Ok((pid, None));
+    }
+
+    let command = command.expect("clap should enforce required pid/cmd");
+    // We use the debug display here to correctly chunk arguments with spaces.
+    // Alternatively, we would escape and quote these strings ourselves, to allow
+    // copy-paste-able arguments.
+    info!("Starting process with command {command:?}");
+    info!("The output of the process will be displayed below, mixed with profiling log messages");
+
+    let child = Command::new(&command[0])
+        .args(&command[1..])
+        .stderr(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .spawn()?;
+
+    Ok((child.id(), Some(KillOnDrop(child))))
 }
 
 fn clear_data_dir(dir: &Path) -> anyhow::Result<()> {
@@ -157,4 +194,14 @@ fn run_view(output_dir: PathBuf, interface: &str, port: u16) -> anyhow::Result<(
         .enable_all()
         .build()?
         .block_on(view::run_view(output_dir, interface, port))
+}
+
+struct KillOnDrop(Child);
+
+impl Drop for KillOnDrop {
+    fn drop(&mut self) {
+        if let Err(e) = self.0.kill() {
+            warn!("Could not kill spawned child process. It might linger around now. Error: {e}")
+        }
+    }
 }
