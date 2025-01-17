@@ -1,9 +1,9 @@
 use crate::resources::{ProcessResources, SystemMeasurements};
-use crate::stacktraces::SpyHelper;
-use anyhow::Context;
+use crate::stacktraces::{PySpyError, SpyHelper};
 use log::trace;
 use py_spy::StackTrace;
 use serde::Serialize;
+use snafu::{Location, ResultExt, Snafu};
 use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -11,6 +11,16 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 use std::{sync, thread};
 use sync::mpsc;
+
+#[derive(Debug, Snafu)]
+pub enum TrackerError {
+    #[snafu(display("Error coming from py-spy at {location}"))]
+    PySpy {
+        source: PySpyError,
+        #[snafu(implicit)]
+        location: Location,
+    },
+}
 
 #[derive(Serialize)]
 struct JsonLine {
@@ -36,10 +46,9 @@ pub struct Tracker {
 }
 
 impl Tracker {
-    pub fn new(pid: u32, output_dir: PathBuf, capture_native: bool) -> anyhow::Result<Self> {
+    pub fn new(pid: u32, output_dir: PathBuf, capture_native: bool) -> Result<Self, TrackerError> {
         let system = SystemMeasurements::new();
-        let spy_helper = SpyHelper::new(pid as py_spy::Pid, capture_native)
-            .context(format!("failed to initialize SpyHelper for PID {}", pid))?;
+        let spy_helper = SpyHelper::new(pid as py_spy::Pid, capture_native).context(PySpySnafu)?;
 
         let (tx, rx) = mpsc::sync_channel::<WriteRequest>(100);
 

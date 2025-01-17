@@ -1,6 +1,17 @@
 use log::{debug, info};
 use py_spy::{Config, PythonSpy, StackTrace};
+use snafu::{Location, ResultExt, Snafu};
 use std::collections::HashMap;
+
+#[derive(Debug, Snafu)]
+pub enum PySpyError {
+    #[snafu(display("Error creating py-spy at {location}"))]
+    Create {
+        source: anyhow::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+}
 
 pub struct SpyHelper {
     spies: HashMap<py_spy::Pid, PythonSpy>,
@@ -8,7 +19,7 @@ pub struct SpyHelper {
 }
 
 impl SpyHelper {
-    pub fn new(root: py_spy::Pid, capture_native: bool) -> anyhow::Result<Self> {
+    pub fn new(root: py_spy::Pid, capture_native: bool) -> Result<Self, PySpyError> {
         let mut helper = SpyHelper {
             spies: HashMap::new(),
             py_spy_config: Config {
@@ -60,8 +71,8 @@ impl SpyHelper {
         debug!("Tracking {} processes", self.spies.len());
     }
 
-    fn track_process(&mut self, pid: py_spy::Pid) -> anyhow::Result<()> {
-        let spy = PythonSpy::new(pid, &self.py_spy_config)?;
+    fn track_process(&mut self, pid: py_spy::Pid) -> Result<(), PySpyError> {
+        let spy = PythonSpy::new(pid, &self.py_spy_config).context(CreateSnafu)?;
 
         self.spies.insert(pid, spy);
 

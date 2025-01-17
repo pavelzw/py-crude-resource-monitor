@@ -5,16 +5,34 @@ use axum::routing::get;
 use axum::{Json, Router};
 use log::info;
 use rust_embed::Embed;
+use snafu::{Location, ResultExt, Snafu};
 use std::path::PathBuf;
 use tower::ServiceExt;
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
+#[derive(Debug, Snafu)]
+pub enum ViewError {
+    #[snafu(display("Error binding to interface `{interface}` at {location}"))]
+    BindToInterface {
+        source: std::io::Error,
+        interface: String,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Error running webserver at {location}"))]
+    Axum {
+        source: std::io::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+}
+
 #[derive(Embed)]
 #[folder = "frontend/dist/"]
 struct Asset;
 
-pub async fn run_view(output_dir: PathBuf, interface: &str, port: u16) -> anyhow::Result<()> {
+pub async fn run_view(output_dir: PathBuf, interface: &str, port: u16) -> Result<(), ViewError> {
     let app = Router::new()
         // nest to ensure the prefix is stripped
         .nest(
@@ -30,8 +48,12 @@ pub async fn run_view(output_dir: PathBuf, interface: &str, port: u16) -> anyhow
     info!("Listening on {listen_address}");
     info!("This probably resolves to http://localhost:{port}");
 
-    let listener = tokio::net::TcpListener::bind(listen_address).await?;
-    axum::serve(listener, app).await?;
+    let listener = tokio::net::TcpListener::bind(listen_address.clone())
+        .await
+        .context(BindToInterfaceSnafu {
+            interface: listen_address,
+        })?;
+    axum::serve(listener, app).await.context(AxumSnafu)?;
 
     Ok(())
 }

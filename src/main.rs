@@ -3,14 +3,15 @@ mod stacktraces;
 mod tracker;
 mod view;
 
-use crate::tracker::Tracker;
-use anyhow::bail;
+use crate::tracker::{Tracker, TrackerError};
+use crate::view::ViewError;
 use clap::builder::styling::AnsiColor;
 use clap::builder::Styles;
 use clap::{ArgGroup, Parser, Subcommand};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Confirm;
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
+use snafu::{ensure, IntoError, Location, NoneError, Report, ResultExt, Snafu};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::thread;
@@ -69,14 +70,71 @@ enum Subcommands {
     },
 }
 
-fn main() -> anyhow::Result<()> {
+#[derive(Debug, Snafu)]
+enum ApplicationError {
+    #[snafu(display("Error running tracker at {location}"))]
+    Tracker {
+        source: TrackerError,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Error setting up webserver runtime at {location}"))]
+    TokioInit {
+        source: tokio::io::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Error running view webserver at {location}"))]
+    View {
+        source: ViewError,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Error creating data directory at {location}"))]
+    DataDirCreate {
+        source: std::io::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Error clearing data directory at {location}"))]
+    DataDirClearIo {
+        source: std::io::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Error communicating with user while clearing data dir at {location}"))]
+    DataDirClearUser {
+        source: dialoguer::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("User cancelled data dir clearing at {location}"))]
+    DataDirClearCancel {
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("This binary is missing support for unwinding native frames {location}"))]
+    MissingUnwindSupport {
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Error starting target process `{command:?}` at {location}"))]
+    TargetCommandStart {
+        source: std::io::Error,
+        command: Vec<String>,
+        #[snafu(implicit)]
+        location: Location,
+    },
+}
+
+fn main() {
     env_logger::init_from_env(
         env_logger::Env::default().filter_or("RUST_LOG", "py_crude_resource_monitor=info"),
     );
 
     let args = Args::parse();
 
-    match args.command {
+    let res = match args.command {
         Subcommands::Profile {
             pid,
             output_dir,
@@ -89,6 +147,12 @@ fn main() -> anyhow::Result<()> {
             interface,
             port,
         } => run_view(output_dir, &interface, port),
+    };
+
+    if let Err(e) = res {
+        error!("An error occurred");
+        error!("{}", Report::from_error(e));
+        std::process::exit(1);
     }
 }
 
@@ -98,20 +162,21 @@ fn run_profile(
     output_dir: PathBuf,
     sample_rate: Option<u64>,
     native: bool,
-) -> anyhow::Result<()> {
+) -> Result<(), ApplicationError> {
     if native && !cfg!(feature = "unwind") {
-        bail!("This binary was compiled without support for capturing native stacktraces");
+        error!("This binary was compiled without support for capturing native stacktraces");
+        return Err(MissingUnwindSupportSnafu.into_error(NoneError));
     }
 
     let sample_sleep_duration = Duration::from_millis(sample_rate.unwrap_or(1000));
 
-    std::fs::create_dir_all(&output_dir)?;
+    std::fs::create_dir_all(&output_dir).context(DataDirCreateSnafu)?;
     clear_data_dir(&output_dir)?;
 
     let (pid, _child) = start_profiling_target(pid, command)?;
     info!("Monitoring process with PID {pid}");
 
-    let mut tracker = Tracker::new(pid, output_dir.clone(), native)?;
+    let mut tracker = Tracker::new(pid, output_dir.clone(), native).context(TrackerSnafu)?;
     while tracker.is_still_tracking() {
         tracker.tick();
         thread::sleep(sample_sleep_duration);
@@ -120,7 +185,9 @@ fn run_profile(
     info!("All processes have exited, exiting");
     info!(
         "View the profile data by running `{} view {}`",
-        std::env::current_exe()?.to_string_lossy(),
+        std::env::current_exe()
+            .map(|it| it.display().to_string())
+            .unwrap_or("<this executable>".to_string()),
         output_dir.display()
     );
     Ok(())
@@ -129,7 +196,7 @@ fn run_profile(
 fn start_profiling_target(
     pid: Option<u32>,
     command: Option<Vec<String>>,
-) -> anyhow::Result<(u32, Option<KillOnDrop>)> {
+) -> Result<(u32, Option<KillOnDrop>), ApplicationError> {
     // We are profiling an existing process by pid, so nothing to do here
     if let Some(pid) = pid {
         return Ok((pid, None));
@@ -146,15 +213,16 @@ fn start_profiling_target(
         .args(&command[1..])
         .stderr(Stdio::inherit())
         .stdout(Stdio::inherit())
-        .spawn()?;
+        .spawn()
+        .context(TargetCommandStartSnafu { command })?;
 
     Ok((child.id(), Some(KillOnDrop(child))))
 }
 
-fn clear_data_dir(dir: &Path) -> anyhow::Result<()> {
+fn clear_data_dir(dir: &Path) -> Result<(), ApplicationError> {
     let mut files = Vec::new();
-    for file in std::fs::read_dir(dir)? {
-        let file = file?;
+    for file in std::fs::read_dir(dir).context(DataDirClearIoSnafu)? {
+        let file = file.context(DataDirClearIoSnafu)?;
         if file.file_name().to_string_lossy().ends_with(".json") {
             files.push(file);
         }
@@ -175,25 +243,26 @@ fn clear_data_dir(dir: &Path) -> anyhow::Result<()> {
             file_names.join(", ")
         ))
         .default(false)
-        .interact()?;
+        .interact()
+        .context(DataDirClearUserSnafu)?;
 
-    if !confirm {
-        bail!("User cancelled deletion");
-    }
+    ensure!(confirm, DataDirClearCancelSnafu);
 
     for file in files {
         debug!("Removing old file {:?}", file.path());
-        std::fs::remove_file(file.path())?;
+        std::fs::remove_file(file.path()).context(DataDirClearIoSnafu)?;
     }
 
     Ok(())
 }
 
-fn run_view(output_dir: PathBuf, interface: &str, port: u16) -> anyhow::Result<()> {
+fn run_view(output_dir: PathBuf, interface: &str, port: u16) -> Result<(), ApplicationError> {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .build()?
+        .build()
+        .context(TokioInitSnafu)?
         .block_on(view::run_view(output_dir, interface, port))
+        .context(ViewSnafu)
 }
 
 struct KillOnDrop(Child);
