@@ -50,6 +50,7 @@ Usage: py-crude-resource-monitor <COMMAND>
 Commands:
   profile  Profile a Python process
   view     Host a web server to view the profile data
+  export   Exports a captured profile to a single, shareable HTML file
   help     Print this message or the help of the given subcommand(s)
 
 Options:
@@ -85,4 +86,17 @@ Options:
       --port <PORT>            The port to listen on [default: 3000]
       --interface <INTERFACE>  The interface to listen on [default: 0.0.0.0]
   -h, --help                   Print help
+```
+
+```text
+Exports a captured profile to a single, shareable HTML file
+
+Usage: py-crude-resource-monitor export <OUTPUT_DIR> <OUTPUT_FILE>
+
+Arguments:
+  <OUTPUT_DIR>   The directory containing the profile data
+  <OUTPUT_FILE>  The output file to write the HTML to
+
+Options:
+  -h, --help  Print help
 ```

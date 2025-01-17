@@ -1,3 +1,4 @@
+mod export;
 mod resources;
 mod stacktraces;
 mod tracker;
@@ -68,6 +69,13 @@ enum Subcommands {
         #[arg(long, default_value = "0.0.0.0")]
         interface: String,
     },
+    /// Exports a captured profile to a single, shareable HTML file
+    Export {
+        /// The directory containing the profile data
+        output_dir: PathBuf,
+        /// The output file to write the HTML to
+        output_file: PathBuf,
+    },
 }
 
 #[derive(Debug, Snafu)]
@@ -125,6 +133,12 @@ enum ApplicationError {
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(display("Error during single file export at {location}"))]
+    Export {
+        source: export::ExportError,
+        #[snafu(implicit)]
+        location: Location,
+    },
 }
 
 fn main() {
@@ -147,6 +161,10 @@ fn main() {
             interface,
             port,
         } => run_view(output_dir, &interface, port),
+        Subcommands::Export {
+            output_dir,
+            output_file,
+        } => export::export_report(&output_dir, &output_file).context(ExportSnafu),
     };
 
     if let Err(e) = res {

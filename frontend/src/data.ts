@@ -150,21 +150,36 @@ function baseUrl(): string {
 }
 
 export async function fetchReportNames(): Promise<string[]> {
+  if (BUNDLED_REPORTS.length > 0) {
+    return BUNDLED_REPORTS.map((r) => r.name);
+  }
   const response = await fetch(`${baseUrl()}/view/profiles.json`);
   if (response.status !== 200) {
     console.log(response.status);
     alert("Error fetching server reports");
-    console.log(await response.text);
+    console.log(await response.text());
   }
   return z.array(z.string()).parse(await response.json());
 }
 
 export async function fetchReportByName(name: string) {
+  if (BUNDLED_REPORTS.length > 0) {
+    const report = BUNDLED_REPORTS.find((r) => r.name === name);
+    if (report === undefined) {
+      console.log(BUNDLED_REPORTS);
+      alert(`Report '${name}' not found`);
+      throw new Error(`Report '${name}' not found`);
+    }
+    return parseJsonProcessReport(name, report.data);
+  }
+
   const response = await fetch(`${baseUrl()}/view/${name}`);
   if (response.status !== 200) {
     console.log(response.status);
     alert(`Error fetching report ${name}`);
-    console.log(await response.text);
+    console.log(await response.text());
   }
   return parseJsonProcessReport(name, await response.text());
 }
+
+const BUNDLED_REPORTS: {name: string, data: string}[] = []
