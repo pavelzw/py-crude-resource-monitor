@@ -15,6 +15,8 @@ use log::{debug, error, info, warn};
 use snafu::{ensure, IntoError, Location, NoneError, Report, ResultExt, Snafu};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use std::{env, thread};
 
@@ -208,18 +210,35 @@ fn run_profile(
     std::fs::create_dir_all(&output_dir).context(DataDirCreateSnafu)?;
     clear_data_dir(&output_dir)?;
 
+    let quit_requested = Arc::new(AtomicBool::new(false));
+    let quit_requested_clone = quit_requested.clone();
+    if let Err(e) = ctrlc::set_handler(move || quit_requested_clone.store(true, Ordering::Release))
+    {
+        warn!(
+            "Could not register CTRL+C termination handler: {}",
+            Report::from_error(e)
+        );
+    }
+
     let (pid, _child) = start_profiling_target_if_necessary(pid, command)?;
     info!("Monitoring process with PID {pid}");
 
     let mut tracker =
         Tracker::new_with_retry(pid, output_dir.clone(), native).context(TrackerSnafu)?;
     info!("Tracking started");
-    while tracker.is_still_tracking() {
+    while tracker.is_still_tracking() && !quit_requested.load(Ordering::Acquire) {
         tracker.tick();
         thread::sleep(sample_sleep_duration);
     }
 
-    info!("All processes have exited, exiting");
+    if quit_requested.load(Ordering::Acquire) {
+        info!("Termination requested, exiting");
+        // Explicitly kill the child now
+        drop(_child);
+    } else {
+        info!("All processes have exited, exiting");
+    }
+
     info!(
         "View the profile data by running `{} view {}`",
         env::current_exe()
