@@ -41,6 +41,8 @@ pixi global install py-crude-resource-monitor
 > If you are using Linux, you can also set the [Yama ptrace
 > scope](https://www.kernel.org/doc/html/latest/admin-guide/LSM/Yama.html#ptrace-scope)
 > to `0` or `1` instead.
+> If you are on macOS, you need root privileges to profile processes.
+> When running `sudo py-crude-resource-manager profile ... -- my-command`, the subprocess will be invoked by the user invoking `sudo` (by using `$SUDO_UID` and `$SUDO_GID`).
 
 ```text
 A small utility to monitor resource usage of Python processes

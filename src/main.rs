@@ -15,8 +15,8 @@ use log::{debug, error, info, warn};
 use snafu::{ensure, IntoError, Location, NoneError, Report, ResultExt, Snafu};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::thread;
 use std::time::Duration;
+use std::{env, thread};
 
 const CLAP_STYLE: Styles = Styles::styled()
     .header(AnsiColor::Red.on_default().bold())
@@ -139,6 +139,11 @@ enum ApplicationError {
         #[snafu(implicit)]
         location: Location,
     },
+    #[cfg(target_os = "macos")]
+    #[snafu(display(
+        "Insufficient permissions on macOS. Please restart the program using `sudo {program_command}`"
+    ))]
+    InsufficientPermissionsMacOS { program_command: String },
 }
 
 fn main() {
@@ -181,6 +186,18 @@ fn run_profile(
     sample_rate: Option<u64>,
     native: bool,
 ) -> Result<(), ApplicationError> {
+    #[cfg(target_os = "macos")]
+    {
+        // On macOS, we need to be root to profile processes
+        if users::get_effective_uid() != 0 {
+            let args = env::args().collect::<Vec<_>>();
+            return Err(InsufficientPermissionsMacOSSnafu {
+                program_command: shlex::try_join(args.iter().map(|s| s.as_str())).unwrap(),
+            }
+            .into_error(NoneError));
+        }
+    }
+
     if native && !cfg!(feature = "unwind") {
         error!("This binary was compiled without support for capturing native stacktraces");
         return Err(MissingUnwindSupportSnafu.into_error(NoneError));
@@ -191,7 +208,7 @@ fn run_profile(
     std::fs::create_dir_all(&output_dir).context(DataDirCreateSnafu)?;
     clear_data_dir(&output_dir)?;
 
-    let (pid, _child) = start_profiling_target(pid, command)?;
+    let (pid, _child) = start_profiling_target_if_necessary(pid, command)?;
     info!("Monitoring process with PID {pid}");
 
     let mut tracker =
@@ -205,7 +222,7 @@ fn run_profile(
     info!("All processes have exited, exiting");
     info!(
         "View the profile data by running `{} view {}`",
-        std::env::current_exe()
+        env::current_exe()
             .map(|it| it.display().to_string())
             .unwrap_or("<this executable>".to_string()),
         output_dir.display()
@@ -213,7 +230,7 @@ fn run_profile(
     Ok(())
 }
 
-fn start_profiling_target(
+fn start_profiling_target_if_necessary(
     pid: Option<u32>,
     command: Option<Vec<String>>,
 ) -> Result<(u32, Option<KillOnDrop>), ApplicationError> {
@@ -229,12 +246,51 @@ fn start_profiling_target(
     info!("Starting process with command {command:?}");
     info!("The output of the process will be displayed below, mixed with profiling log messages");
 
+    start_profiling_target(command)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn start_profiling_target(
+    command: Vec<String>,
+) -> Result<(u32, Option<KillOnDrop>), ApplicationError> {
     let child = Command::new(&command[0])
         .args(&command[1..])
         .stderr(Stdio::inherit())
         .stdout(Stdio::inherit())
         .spawn()
         .context(TargetCommandStartSnafu { command })?;
+
+    Ok((child.id(), Some(KillOnDrop(child))))
+}
+
+#[cfg(target_os = "macos")]
+fn start_profiling_target(
+    command: Vec<String>,
+) -> Result<(u32, Option<KillOnDrop>), ApplicationError> {
+    use std::os::unix::process::CommandExt;
+    let child = {
+        // On macOS, you need to run the profile subcommand as sudo to get enough permissions.
+        // Switch to the executing user in the subprocess as this is what you want almost always.
+        let sudo_uid = env::var("SUDO_UID")
+            .ok()
+            .map(|s| s.parse::<u32>().expect("SUDO_UID is parseable"));
+        let sudo_gid = env::var("SUDO_GID")
+            .ok()
+            .map(|s| s.parse::<u32>().expect("SUDO_GID is parseable"));
+        info!("Got sudo_uid={sudo_uid:?} and sudo_gid={sudo_gid:?}");
+        let uid = sudo_uid.unwrap_or_else(|| users::get_effective_uid());
+        let gid = sudo_gid.unwrap_or_else(|| users::get_effective_gid());
+        info!("Running subprocess with uid={uid:?} and gid={gid:?}");
+
+        Command::new(&command[0])
+            .args(&command[1..])
+            .stderr(Stdio::inherit())
+            .stdout(Stdio::inherit())
+            .uid(uid)
+            .gid(gid)
+            .spawn()
+            .context(TargetCommandStartSnafu { command })?
+    };
 
     Ok((child.id(), Some(KillOnDrop(child))))
 }
@@ -289,6 +345,7 @@ struct KillOnDrop(Child);
 
 impl Drop for KillOnDrop {
     fn drop(&mut self) {
+        info!("Cleaning up spawned process");
         if let Err(e) = self.0.kill() {
             warn!("Could not kill spawned child process. It might linger around now. Error: {e}")
         }
