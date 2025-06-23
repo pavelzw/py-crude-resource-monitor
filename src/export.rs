@@ -23,6 +23,7 @@ const MALLOC_COUNTER_NAME: &str = "malloc";
 const MALLOC_CATEGORY_NAME: &str = "Memory";
 const MALLOC_DESCRIPTION: &str = "Amount of allocated memory";
 const CATEGORY_PYTHON_NAME: &str = "Python";
+const CATEGORY_NATIVE_NAME: &str = "Native";
 
 #[derive(Debug, Snafu)]
 pub enum ExportError {
@@ -201,6 +202,7 @@ fn generate_fxprof(processes: HashMap<u32, Vec<JsonLine>>) -> Profile {
     );
     // todo: separate categories for native code
     let category_python = profile.add_category(CATEGORY_PYTHON_NAME, CategoryColor::Blue);
+    let category_native = profile.add_category(CATEGORY_NATIVE_NAME, CategoryColor::Green);
 
     for (pid, lines) in processes {
         let start_time_millis_process = lines[0].time;
@@ -289,7 +291,11 @@ fn generate_fxprof(processes: HashMap<u32, Vec<JsonLine>>) -> Profile {
                                     .as_str(),
                                 ),
                             ),
-                            category_pair: category_python.into(),
+                            category_pair: if frame.is_entry {
+                                category_native.into()
+                            } else {
+                                category_python.into()
+                            },
                             flags: FrameFlags::empty(),
                         });
                     stack_frames.push(frame_info.clone());
