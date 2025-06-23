@@ -200,7 +200,6 @@ fn generate_fxprof(processes: HashMap<u32, Vec<JsonLine>>) -> Profile {
         ReferenceTimestamp::from_millis_since_unix_epoch(start_time_millis as f64),
         SamplingInterval::from_millis(interval_millis),
     );
-    // todo: separate categories for native code
     let category_python = profile.add_category(CATEGORY_PYTHON_NAME, CategoryColor::Blue);
     let category_native = profile.add_category(CATEGORY_NATIVE_NAME, CategoryColor::Green);
 
