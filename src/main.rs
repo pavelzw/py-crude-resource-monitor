@@ -2,6 +2,7 @@ mod export;
 mod resources;
 mod stacktraces;
 mod tracker;
+mod types;
 mod view;
 
 use crate::tracker::{Tracker, TrackerError};
@@ -73,9 +74,25 @@ enum Subcommands {
     },
     /// Exports a captured profile to a single, shareable HTML file
     Export {
+        #[command(subcommand)]
+        export_subcommand: ExportSubcommand,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum ExportSubcommand {
+    /// Exports a captured profile to a single, shareable HTML file
+    Html {
         /// The directory containing the profile data
         output_dir: PathBuf,
         /// The output file to write the HTML to
+        output_file: PathBuf,
+    },
+    /// Exports to the Firefox Profiler's processed profile JSON format
+    Firefox {
+        /// The directory containing the profile data
+        output_dir: PathBuf,
+        /// The output file to write the gz-compressed JSON to
         output_file: PathBuf,
     },
 }
@@ -168,10 +185,16 @@ fn main() {
             interface,
             port,
         } => run_view(output_dir, &interface, port),
-        Subcommands::Export {
-            output_dir,
-            output_file,
-        } => export::export_report(&output_dir, &output_file).context(ExportSnafu),
+        Subcommands::Export { export_subcommand } => match export_subcommand {
+            ExportSubcommand::Html {
+                output_dir,
+                output_file,
+            } => export::export_report(&output_dir, &output_file).context(ExportSnafu),
+            ExportSubcommand::Firefox {
+                output_dir,
+                output_file,
+            } => export::export_fxprof(&output_dir, &output_file).context(ExportSnafu),
+        },
     };
 
     if let Err(e) = res {
@@ -297,8 +320,8 @@ fn start_profiling_target(
             .ok()
             .map(|s| s.parse::<u32>().expect("SUDO_GID is parseable"));
         info!("Got sudo_uid={sudo_uid:?} and sudo_gid={sudo_gid:?}");
-        let uid = sudo_uid.unwrap_or_else(|| users::get_effective_uid());
-        let gid = sudo_gid.unwrap_or_else(|| users::get_effective_gid());
+        let uid = sudo_uid.unwrap_or_else(users::get_effective_uid);
+        let gid = sudo_gid.unwrap_or_else(users::get_effective_gid);
         info!("Running subprocess with uid={uid:?} and gid={gid:?}");
 
         Command::new(&command[0])

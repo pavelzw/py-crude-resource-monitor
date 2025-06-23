@@ -1,8 +1,8 @@
-use crate::resources::{ProcessResources, SystemMeasurements};
+use crate::resources::SystemMeasurements;
 use crate::stacktraces::{PySpyError, SpyHelper};
+use crate::types::{JsonLine, ProcessResources};
 use log::{trace, warn};
 use py_spy::StackTrace;
-use serde::Serialize;
 use snafu::{Location, ResultExt, Snafu};
 use std::collections::HashMap;
 use std::fs::OpenOptions;
@@ -20,14 +20,6 @@ pub enum TrackerError {
         #[snafu(implicit)]
         location: Location,
     },
-}
-
-#[derive(Serialize)]
-struct JsonLine {
-    stacktraces: Vec<StackTrace>,
-    resources: ProcessResources,
-    index: usize,
-    time: u128,
 }
 
 #[derive(Clone, Debug)]
@@ -85,7 +77,7 @@ impl Tracker {
                     .open(&path)
                     .unwrap();
                 let line = JsonLine {
-                    stacktraces: req.stacktraces,
+                    stacktraces: req.stacktraces.into_iter().map(|s| s.into()).collect(),
                     resources: req.resources,
                     index: *line_index,
                     time: req.time,

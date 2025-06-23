@@ -93,11 +93,24 @@ Options:
 ```text
 Exports a captured profile to a single, shareable HTML file
 
-Usage: py-crude-resource-monitor export <OUTPUT_DIR> <OUTPUT_FILE>
+Usage: py-crude-resource-monitor export html <OUTPUT_DIR> <OUTPUT_FILE>
 
 Arguments:
   <OUTPUT_DIR>   The directory containing the profile data
   <OUTPUT_FILE>  The output file to write the HTML to
+
+Options:
+  -h, --help  Print help
+```
+
+```text
+Exports to the Firefox Profiler's processed profile JSON format
+
+Usage: py-crude-resource-monitor export firefox <OUTPUT_DIR> <OUTPUT_FILE>
+
+Arguments:
+  <OUTPUT_DIR>   The directory containing the profile data
+  <OUTPUT_FILE>  The output file to write the gz-compressed JSON to
 
 Options:
   -h, --help  Print help

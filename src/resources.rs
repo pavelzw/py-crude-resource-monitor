@@ -1,25 +1,7 @@
-use serde::{Deserialize, Serialize};
+use crate::types::{ProcessResources, ThreadResources};
 use sysinfo::{
     CpuRefreshKind, DiskRefreshKind, MemoryRefreshKind, ProcessRefreshKind, RefreshKind, UpdateKind,
 };
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ThreadResources {
-    pub tid: u32,
-    pub cpu: f32,
-    pub memory: u64,
-    pub disk_read_bytes: u64,
-    pub disk_write_bytes: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProcessResources {
-    pub memory: u64,
-    pub cpu: f32,
-    pub disk_read_bytes: u64,
-    pub disk_write_bytes: u64,
-    pub thread_resources: Vec<ThreadResources>,
-}
 
 #[derive(Debug)]
 pub struct SystemMeasurements {
