@@ -172,7 +172,7 @@ pub fn export_fxprof(data_dir: &Path, output_path: &Path) -> Result<(), ExportEr
     })?;
     let output_str = serde_json::to_vec(&profile).context(SerializeReportsSnafu)?;
 
-    let mut gz = flate2::write::GzEncoder::new(output_file, flate2::Compression::default());
+    let mut gz = flate2::write::GzEncoder::new(output_file, Compression::default());
     gz.write_all(&output_str).context(WriteOutputGzSnafu {
         path: output_path.display().to_string(),
     })?;
@@ -251,6 +251,15 @@ fn generate_fxprof(processes: HashMap<u32, Vec<JsonLine>>) -> Profile {
 
         let mut all_frames = HashMap::new();
 
+        // Initialize the counters with zero to ensure they are relative to zero, not the initial
+        // value.
+        if let Some(line) = lines.first() {
+            let timestamp =
+                Timestamp::from_millis_since_reference((line.time - start_time_millis) as f64);
+            profile.add_counter_sample(cpu_counter, timestamp, 0., 1);
+            profile.add_counter_sample(memory_counter, timestamp, 0., 1);
+        }
+
         for line in lines {
             assert!(line.time >= start_time_millis_process);
             let timestamp =
@@ -303,6 +312,12 @@ fn generate_fxprof(processes: HashMap<u32, Vec<JsonLine>>) -> Profile {
 
                 let cpu_delta = if thread == main_thread_handle {
                     CpuDelta::from_millis(line.resources.cpu as f64 / 100. * interval_millis as f64)
+                } else if let Some(os_thread_id) = stacktrace.os_thread_id {
+                    if let Some(resources) = line.resources.thread_resources.get(&os_thread_id) {
+                        CpuDelta::from_millis(resources.cpu as f64 / 100. * interval_millis as f64)
+                    } else {
+                        CpuDelta::ZERO
+                    }
                 } else {
                     CpuDelta::ZERO
                 };

@@ -1,5 +1,6 @@
 use py_spy::Pid;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct JsonLine {
@@ -11,7 +12,6 @@ pub struct JsonLine {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThreadResources {
-    pub tid: u32,
     pub cpu: f32,
     pub memory: u64,
     pub disk_read_bytes: u64,
@@ -24,7 +24,7 @@ pub struct ProcessResources {
     pub cpu: f32,
     pub disk_read_bytes: u64,
     pub disk_write_bytes: u64,
-    pub thread_resources: Vec<ThreadResources>,
+    pub thread_resources: HashMap<u64, ThreadResources>,
 }
 
 // the following structs are `Deserialize`-able wrappers for py-spy structs

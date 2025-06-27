@@ -1,4 +1,5 @@
 use crate::types::{ProcessResources, ThreadResources};
+use std::collections::HashMap;
 use sysinfo::{
     CpuRefreshKind, DiskRefreshKind, MemoryRefreshKind, ProcessRefreshKind, RefreshKind, UpdateKind,
 };
@@ -46,14 +47,18 @@ impl SystemMeasurements {
             .into_iter()
             .flatten()
             .flat_map(|tid| self.system.process(*tid))
-            .map(|task| ThreadResources {
-                tid: task.pid().as_u32(),
-                cpu: task.cpu_usage(),
-                memory: task.memory(),
-                disk_read_bytes: task.disk_usage().read_bytes,
-                disk_write_bytes: task.disk_usage().written_bytes,
+            .map(|task| {
+                (
+                    task.pid().as_u32() as u64,
+                    ThreadResources {
+                        cpu: task.cpu_usage(),
+                        memory: task.memory(),
+                        disk_read_bytes: task.disk_usage().read_bytes,
+                        disk_write_bytes: task.disk_usage().written_bytes,
+                    },
+                )
             })
-            .collect::<Vec<_>>();
+            .collect::<HashMap<u64, _>>();
 
         Some(ProcessResources {
             memory,
@@ -81,7 +86,7 @@ impl SystemMeasurements {
             cpu,
             disk_read_bytes,
             disk_write_bytes,
-            thread_resources: Vec::new(),
+            thread_resources: HashMap::new(),
         }
     }
 }
