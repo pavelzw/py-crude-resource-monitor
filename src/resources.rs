@@ -83,7 +83,7 @@ impl SystemMeasurements {
     }
 
     pub fn get_global_info(&mut self) -> ProcessResources {
-        let memory = self.system.used_memory();
+        let memory = self.system.used_memory() + self.system.used_swap();
         // We want to normalize the cpu usage so that 100% is only one core
         let cpu = self.system.global_cpu_usage() * self.system.cpus().len() as f32;
         let (disk_read_bytes, disk_write_bytes) = self
