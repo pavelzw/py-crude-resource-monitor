@@ -189,11 +189,11 @@ fn main() {
             ExportSubcommand::Html {
                 output_dir,
                 output_file,
-            } => export::export_report(&output_dir, &output_file).context(ExportSnafu),
+            } => export::export_html(&output_dir, &output_file).context(ExportSnafu),
             ExportSubcommand::Firefox {
                 output_dir,
                 output_file,
-            } => export::export_fxprof(&output_dir, &output_file).context(ExportSnafu),
+            } => export::export_firefox(&output_dir, &output_file).context(ExportSnafu),
         },
     };
 
