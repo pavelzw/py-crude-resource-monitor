@@ -12,7 +12,7 @@ pub struct SystemMeasurements {
 
 impl SystemMeasurements {
     pub fn new() -> Self {
-        SystemMeasurements {
+        Self {
             system: sysinfo::System::new(),
             disk: sysinfo::Disks::new(),
         }

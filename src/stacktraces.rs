@@ -20,7 +20,7 @@ pub struct SpyHelper {
 
 impl SpyHelper {
     pub fn new(root: py_spy::Pid, capture_native: bool) -> Result<Self, PySpyError> {
-        let mut helper = SpyHelper {
+        let mut helper = Self {
             spies: HashMap::new(),
             py_spy_config: Config {
                 native: capture_native,

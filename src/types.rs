@@ -42,7 +42,7 @@ pub struct StackTrace {
 
 impl From<py_spy::StackTrace> for StackTrace {
     fn from(trace: py_spy::StackTrace) -> Self {
-        StackTrace {
+        Self {
             pid: trace.pid,
             thread_id: trace.thread_id,
             thread_name: trace.thread_name,
@@ -68,7 +68,7 @@ pub struct Frame {
 
 impl From<py_spy::Frame> for Frame {
     fn from(frame: py_spy::Frame) -> Self {
-        Frame {
+        Self {
             name: frame.name,
             filename: frame.filename,
             module: frame.module,
@@ -92,7 +92,7 @@ pub struct LocalVariable {
 
 impl From<py_spy::stack_trace::LocalVariable> for LocalVariable {
     fn from(local: py_spy::stack_trace::LocalVariable) -> Self {
-        LocalVariable {
+        Self {
             name: local.name,
             addr: local.addr,
             arg: local.arg,
@@ -110,7 +110,7 @@ pub struct ProcessInfo {
 
 impl From<py_spy::stack_trace::ProcessInfo> for ProcessInfo {
     fn from(info: py_spy::stack_trace::ProcessInfo) -> Self {
-        ProcessInfo {
+        Self {
             pid: info.pid,
             command_line: info.command_line,
             parent: info.parent.map(|p| Box::new((*p).into())),

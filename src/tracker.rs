@@ -90,7 +90,7 @@ impl Tracker {
             }
         });
 
-        Ok(Tracker {
+        Ok(Self {
             spies: spy_helper,
             system,
             output_dir,
