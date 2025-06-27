@@ -1,21 +1,37 @@
 use serde::{Deserialize, Serialize};
-use sysinfo::{CpuRefreshKind, MemoryRefreshKind, ProcessRefreshKind, RefreshKind, UpdateKind};
+use sysinfo::{
+    CpuRefreshKind, DiskRefreshKind, MemoryRefreshKind, ProcessRefreshKind, RefreshKind, UpdateKind,
+};
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThreadResources {
+    pub tid: u32,
+    pub cpu: f32,
+    pub memory: u64,
+    pub disk_read_bytes: u64,
+    pub disk_write_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessResources {
     pub memory: u64,
     pub cpu: f32,
+    pub disk_read_bytes: u64,
+    pub disk_write_bytes: u64,
+    pub thread_resources: Vec<ThreadResources>,
 }
 
 #[derive(Debug)]
 pub struct SystemMeasurements {
     system: sysinfo::System,
+    disk: sysinfo::Disks,
 }
 
 impl SystemMeasurements {
     pub fn new() -> Self {
         SystemMeasurements {
             system: sysinfo::System::new(),
+            disk: sysinfo::Disks::new(),
         }
     }
 
@@ -27,10 +43,14 @@ impl SystemMeasurements {
                     ProcessRefreshKind::default()
                         .with_cpu()
                         .with_memory()
+                        .with_tasks()
+                        .with_disk_usage()
                         .with_cmd(UpdateKind::Always),
                 )
-                .with_memory(MemoryRefreshKind::default().with_ram()),
+                .with_memory(MemoryRefreshKind::default().with_ram().with_swap()),
         );
+        self.disk
+            .refresh_specifics(true, DiskRefreshKind::nothing().with_io_usage());
     }
 
     pub fn get_process_info(&mut self, pid: sysinfo::Pid) -> Option<ProcessResources> {
@@ -39,9 +59,26 @@ impl SystemMeasurements {
         let cpu_usage = process.cpu_usage();
         let memory = process.memory();
 
+        let thread_resources = process
+            .tasks()
+            .into_iter()
+            .flatten()
+            .flat_map(|tid| self.system.process(*tid))
+            .map(|task| ThreadResources {
+                tid: task.pid().as_u32(),
+                cpu: task.cpu_usage(),
+                memory: task.memory(),
+                disk_read_bytes: task.disk_usage().read_bytes,
+                disk_write_bytes: task.disk_usage().written_bytes,
+            })
+            .collect::<Vec<_>>();
+
         Some(ProcessResources {
             memory,
             cpu: cpu_usage,
+            disk_read_bytes: process.disk_usage().read_bytes,
+            disk_write_bytes: process.disk_usage().written_bytes,
+            thread_resources,
         })
     }
 
@@ -49,7 +86,20 @@ impl SystemMeasurements {
         let memory = self.system.used_memory();
         // We want to normalize the cpu usage so that 100% is only one core
         let cpu = self.system.global_cpu_usage() * self.system.cpus().len() as f32;
+        let (disk_read_bytes, disk_write_bytes) = self
+            .disk
+            .iter()
+            .map(|it| it.usage())
+            .fold((0, 0), |(read, written), usage| {
+                (read + usage.read_bytes, written + usage.written_bytes)
+            });
 
-        ProcessResources { memory, cpu }
+        ProcessResources {
+            memory,
+            cpu,
+            disk_read_bytes,
+            disk_write_bytes,
+            thread_resources: Vec::new(),
+        }
     }
 }
