@@ -1,4 +1,5 @@
 use crate::types::JsonLine;
+use flate2::write::GzEncoder;
 use flate2::Compression;
 use fxprof_processed_profile::{
     CategoryColor, CpuDelta, Frame, FrameFlags, FrameInfo, GraphColor, Profile, ReferenceTimestamp,
@@ -6,10 +7,12 @@ use fxprof_processed_profile::{
 };
 use snafu::{Location, ResultExt, Snafu};
 use std::collections::HashMap;
-use std::io::Write;
+use std::fs::File;
 use std::num::ParseIntError;
 use std::path::Path;
 
+/// The pid representing the global full-system report.
+const GLOBAL_REPORT_PID: u32 = 0;
 const MAIN_THREAD_NAME: &str = "MainThread";
 const PROCESS_CPU_COUNTER_NAME: &str = "processCPU";
 const PROCESS_CPU_CATEGORY_NAME: &str = "CPU";
@@ -75,18 +78,9 @@ pub(super) fn export_report(data_dir: &Path, output_path: &Path) -> Result<(), E
     let process_to_profile = read_report(data_dir)?;
 
     let profile = generate_fxprof(process_to_profile);
-    let output_file = std::fs::File::create(output_path).context(WriteOutputSnafu {
-        path: output_path.display().to_string(),
-    })?;
-    let output_str = serde_json::to_vec(&profile).context(SerializeReportsSnafu)?;
 
-    let mut gz = flate2::write::GzEncoder::new(output_file, Compression::default());
-    gz.write_all(&output_str).context(WriteOutputGzSnafu {
-        path: output_path.display().to_string(),
-    })?;
-    gz.finish().context(WriteOutputGzSnafu {
-        path: output_path.display().to_string(),
-    })?;
+    write_profile(output_path, profile)?;
+
     eprintln!(
         "Wrote Firefox profile to {}. Open it in `https://profiler.firefox.com`.",
         output_path.display()
@@ -105,12 +99,6 @@ fn read_report(data_dir: &Path) -> Result<HashMap<u32, Vec<JsonLine>>, ExportErr
             .unwrap()
             .to_string_lossy()
             .to_string();
-        if name == "global" {
-            continue;
-        }
-        let pid = name
-            .parse::<u32>()
-            .context(InvalidInputFileSnafu { path: &name })?;
 
         let content =
             std::fs::read_to_string(entry.path()).context(ReadReportSnafu { name: &name })?;
@@ -119,6 +107,14 @@ fn read_report(data_dir: &Path) -> Result<HashMap<u32, Vec<JsonLine>>, ExportErr
             .lines()
             .map(|line| serde_json::from_str(line).context(DeserializeReportSnafu { name: &name }))
             .collect::<Result<_, _>>()?;
+
+        let pid = if name == "global" {
+            // Pid 1 is the init process, pid 0 is not real and used as a global placeholder.
+            GLOBAL_REPORT_PID
+        } else {
+            name.parse::<u32>()
+                .context(InvalidInputFileSnafu { path: &name })?
+        };
 
         all_processes.insert(pid, lines);
     }
@@ -274,4 +270,23 @@ fn generate_fxprof(processes: HashMap<u32, Vec<JsonLine>>) -> Profile {
     }
 
     profile
+}
+
+fn write_profile(output_path: &Path, profile: Profile) -> Result<(), ExportError> {
+    let output_file = File::create(output_path).context(WriteOutputSnafu {
+        path: output_path.display().to_string(),
+    })?;
+
+    let mut gz = GzEncoder::new(output_file, Compression::default());
+
+    // Serialize the data to JSON and write it to the gzipped file
+    serde_json::to_writer(&mut gz, &profile).context(SerializeReportsSnafu)?;
+
+    // Finish is required to finalize the compressed output and ensure all data is written,
+    // without any corruption.
+    gz.finish().context(WriteOutputGzSnafu {
+        path: output_path.display().to_string(),
+    })?;
+
+    Ok(())
 }
