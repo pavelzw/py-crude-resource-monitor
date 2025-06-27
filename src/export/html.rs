@@ -1,5 +1,5 @@
-use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
 use flate2::Compression;
 use rust_embed::Embed;
 use serde_json::json;
@@ -46,9 +46,7 @@ pub enum ExportError {
         #[snafu(implicit)]
         location: Location,
     },
-    #[snafu(display(
-        "Profile data insertion point not found in bundled index.html at {location}"
-    ))]
+    #[snafu(display("Profile data insertion point not found in bundled index.html at {location}"))]
     InsertionPointMissing {
         #[snafu(implicit)]
         location: Location,

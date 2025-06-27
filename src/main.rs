@@ -7,17 +7,17 @@ mod view;
 
 use crate::tracker::{Tracker, TrackerError};
 use crate::view::ViewError;
-use clap::builder::styling::AnsiColor;
 use clap::builder::Styles;
+use clap::builder::styling::AnsiColor;
 use clap::{ArgGroup, Parser, Subcommand};
-use dialoguer::theme::ColorfulTheme;
 use dialoguer::Confirm;
+use dialoguer::theme::ColorfulTheme;
 use log::{debug, error, info, warn};
-use snafu::{ensure, IntoError, Location, NoneError, Report, ResultExt, Snafu};
+use snafu::{IntoError, Location, NoneError, Report, ResultExt, Snafu, ensure};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use std::{env, thread};
 
