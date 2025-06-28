@@ -15,12 +15,6 @@ use std::marker::PhantomData;
 use std::path::Path;
 
 const MAIN_THREAD_NAME: &str = "MainThread";
-const PROCESS_CPU_COUNTER_NAME: &str = "processCPU";
-const PROCESS_CPU_CATEGORY_NAME: &str = "CPU";
-const PROCESS_CPU_DESCRIPTION: &str = "Process CPU utilization";
-const MALLOC_COUNTER_NAME: &str = "malloc";
-const MALLOC_CATEGORY_NAME: &str = "Memory";
-const MALLOC_DESCRIPTION: &str = "Amount of allocated memory";
 const CATEGORY_PYTHON_NAME: &str = "Python";
 const CATEGORY_NATIVE_NAME: &str = "Native";
 
@@ -166,8 +160,8 @@ struct ProfileBuilderProcess<'a, T> {
     pid: u32,
     start_time_millis: u128,
     threads: HashMap<u32, ThreadHandle>,
-    cpu_counter: ProfileCounter<Initialized>,
     memory_counter: ProfileCounter<Initialized>,
+    io_counter: ProfileCounter<Initialized>,
     data: T,
 }
 
@@ -178,22 +172,25 @@ impl<'a> ProfileBuilderProcess<'a, ()> {
         let start_timestamp = parent.time(start_time_millis);
         let process = parent.profile.add_process("Process", pid, start_timestamp);
 
-        let cpu_counter = ProfileCounter::new(
-            &mut parent.profile,
-            process,
-            PROCESS_CPU_COUNTER_NAME,
-            PROCESS_CPU_CATEGORY_NAME,
-            PROCESS_CPU_DESCRIPTION,
-            GraphColor::Red,
-        )
-        .initialize(&mut parent.profile, start_timestamp, 0.);
+        // See "renderTrack" for names:
+        // https://github.com/firefox-devtools/profiler/blob/main/src/components/timeline/LocalTrack.js#L102
+        // (at revision 5c7515aa243e8b21de77e0434d9cc0f761e8bafd if broken)
         let memory_counter = ProfileCounter::new(
             &mut parent.profile,
             process,
-            MALLOC_COUNTER_NAME,
-            MALLOC_CATEGORY_NAME,
-            MALLOC_DESCRIPTION,
-            GraphColor::Purple,
+            "malloc",
+            "Memory",
+            "Amount of allocated memory",
+            GraphColor::Orange,
+        )
+        .initialize(&mut parent.profile, start_timestamp, 0.);
+        let io_counter = ProfileCounter::new(
+            &mut parent.profile,
+            process,
+            "io",
+            "Bandwidth",
+            "I/O read/write in bytes",
+            GraphColor::Teal,
         )
         .initialize(&mut parent.profile, start_timestamp, 0.);
 
@@ -203,8 +200,8 @@ impl<'a> ProfileBuilderProcess<'a, ()> {
             pid,
             start_time_millis,
             threads: HashMap::new(),
-            cpu_counter,
             memory_counter,
+            io_counter,
             data: (),
         }
     }
@@ -236,8 +233,8 @@ impl<'a> ProfileBuilderProcess<'a, ()> {
             pid: self.pid,
             start_time_millis: self.start_time_millis,
             threads: self.threads,
-            cpu_counter: self.cpu_counter,
             memory_counter: self.memory_counter,
+            io_counter: self.io_counter,
             data: MainThreadAdded { main_thread_handle },
         })
     }
@@ -324,16 +321,15 @@ impl ProfileBuilderProcess<'_, MainThreadAdded> {
                     .add_sample(thread, timestamp, stack, cpu_delta, 1);
             }
 
-            self.cpu_counter.add_value(
-                &mut self.parent.profile,
-                timestamp,
-                line.resources.cpu as f64,
-            );
-
             self.memory_counter.add_value(
                 &mut self.parent.profile,
                 timestamp,
                 line.resources.memory as f64,
+            );
+            self.io_counter.add_value(
+                &mut self.parent.profile,
+                timestamp,
+                (line.resources.disk_read_bytes + line.resources.disk_write_bytes) as f64,
             );
         }
 
