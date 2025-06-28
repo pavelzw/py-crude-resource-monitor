@@ -1523,8 +1523,7 @@ dependencies = [
 [[package]]
 name = "py-spy"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4f4300b4ae8b012f43c3ec196a5c24dfb7921d293b3b47e6856617271ae6d3b"
+source = "git+https://github.com/I-Al-Istannen/py-spy?rev=e1cba46188b04d4c6e065be41011bb9ecbe982a5#e1cba46188b04d4c6e065be41011bb9ecbe982a5"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1667,8 +1666,7 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 [[package]]
 name = "remoteprocess"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6194770c7afc1d2ca42acde19267938eb7d52ccb5b727f1a2eafa8d4d00ff20"
+source = "git+https://github.com/I-Al-Istannen/remoteprocess?rev=12d826a14bba1b985222e012a59591da181389cd#12d826a14bba1b985222e012a59591da181389cd"
 dependencies = [
  "addr2line",
  "cfg-if",
