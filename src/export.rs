@@ -72,7 +72,7 @@ fn read_report(data_dir: &Path) -> Result<HashMap<ReportIdentifier, Vec<JsonLine
         } else {
             ReportIdentifier::Pid(
                 name.parse::<u32>()
-                    .with_whatever_context(|_| format!("could not parse pid from `{}`", name))?,
+                    .with_whatever_context(|_| format!("could not parse pid from `{name}`"))?,
             )
         };
 

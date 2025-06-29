@@ -50,7 +50,7 @@ impl SpyHelper {
                 }
             }
             if let Err(e) = spy.process.exe() {
-                info!("Tracked process exited: {}", e);
+                info!("Tracked process exited: {e}");
                 to_remove.push(spy.pid);
             }
         }
@@ -63,9 +63,9 @@ impl SpyHelper {
         // Add new processes
         for pid in new_processes {
             if let Err(e) = self.track_process(pid) {
-                info!("Error tracking process {}: {}", pid, e);
+                info!("Error tracking process {pid}: {e}");
             }
-            info!("Tracking new process {}", pid);
+            info!("Tracking new process {pid}");
         }
 
         debug!("Tracking {} processes", self.spies.len());

@@ -83,7 +83,7 @@ pub(super) fn export_report(data_dir: &Path, output_file: &Path) -> Result<(), E
     let original_html = String::from_utf8_lossy(&index_html.data);
     let index_html = original_html.replace(
         "const BUNDLED_REPORTS = []",
-        &format!("const BUNDLED_REPORTS = {};", report_json),
+        &format!("const BUNDLED_REPORTS = {report_json};"),
     );
 
     if original_html == index_html {

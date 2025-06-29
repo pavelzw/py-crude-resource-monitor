@@ -48,7 +48,7 @@ impl Tracker {
             match Self::new(pid, output_dir.clone(), capture_native) {
                 Ok(tracker) => return Ok(tracker),
                 Err(e) => {
-                    warn!("Got error during attach, will retry. ({})", e);
+                    warn!("Got error during attach, will retry. ({e})");
                     last_err = Some(e);
                 }
             }
@@ -70,7 +70,7 @@ impl Tracker {
                 let path = req.output_path;
                 let line_index = file_lines.entry(path.clone()).or_insert(0);
 
-                trace!("Writing stacktraces to {:?}", path);
+                trace!("Writing stacktraces to {path:?}");
                 let mut file = OpenOptions::new()
                     .create(true)
                     .append(true)
@@ -121,7 +121,7 @@ impl Tracker {
 
             self.writer_channel
                 .send(WriteRequest {
-                    output_path: self.output_dir.join(format!("{}.json", pid)),
+                    output_path: self.output_dir.join(format!("{pid}.json")),
                     resources: info,
                     stacktraces: threads.clone(),
                     time: query_time,
