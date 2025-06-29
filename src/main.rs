@@ -15,7 +15,7 @@ use dialoguer::theme::ColorfulTheme;
 use log::{debug, error, info, warn};
 use snafu::{IntoError, Location, NoneError, Report, ResultExt, Snafu, ensure};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -171,7 +171,8 @@ enum ApplicationError {
     InsufficientPermissionsMacOS { program_command: String },
 }
 
-fn main() {
+#[snafu::report]
+fn main() -> Result<(), ApplicationError> {
     env_logger::init_from_env(
         env_logger::Env::default().filter_or("RUST_LOG", "py_crude_resource_monitor=info"),
     );
@@ -185,40 +186,55 @@ fn main() {
             sample_rate,
             native,
             command,
-        } => run_profile(pid, command, output_dir, sample_rate, native),
+        } => run_profile(pid, command, output_dir, sample_rate, native)?,
         Subcommands::View {
             output_dir,
             interface,
             port,
-        } => run_view(output_dir, &interface, port).map(|_| None),
+        } => run_view(output_dir, &interface, port).map(|_| None)?,
         Subcommands::Export { export_subcommand } => match export_subcommand {
             ExportSubcommand::Html {
                 output_dir,
                 output_file,
             } => export::export_html(&output_dir, &output_file)
                 .context(ExportSnafu)
-                .map(|_| None),
+                .map(|_| None)?,
             ExportSubcommand::Firefox {
                 output_dir,
                 output_file,
             } => export::export_firefox(&output_dir, &output_file)
                 .context(ExportSnafu)
-                .map(|_| None),
+                .map(|_| None)?,
         },
     };
 
-    match res {
-        Err(e) => {
-            error!("An error occurred");
-            error!("{}", Report::from_error(e));
-            std::process::exit(1);
-        }
-        Ok(Some(exit_code)) => {
-            info!("Program exited with code {:?}", exit_code);
+    if let Some(exit_status) = res {
+        if let Some(exit_code) = exit_status.code() {
+            info!("Program exited with code {exit_code:?}");
             std::process::exit(exit_code);
         }
-        _ => std::process::exit(0),
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::ExitStatusExt;
+            if let Some(signal) = exit_status.signal() {
+                info!("Program was killed by signal {signal:?}");
+                // just a bash convention, exit code is 128 + signal number
+                std::process::exit(128 + signal);
+            }
+            // This should not be possible, as we wait for exit without tracing
+            assert!(
+                exit_status.stopped_signal().is_none(),
+                "Program was stopped by signal, but not killed: {exit_status:?}"
+            );
+        }
+
+        if !exit_status.success() {
+            error!("Program exited with unknown status: {exit_status:?}");
+            std::process::exit(1);
+        }
     }
+
+    Ok(())
 }
 
 fn run_profile(
@@ -227,7 +243,7 @@ fn run_profile(
     output_dir: PathBuf,
     sample_rate: Option<u64>,
     native: bool,
-) -> Result<Option<i32>, ApplicationError> {
+) -> Result<Option<ExitStatus>, ApplicationError> {
     #[cfg(target_os = "macos")]
     {
         // On macOS, we need to be root to profile processes
@@ -279,7 +295,7 @@ fn run_profile(
     } else {
         info!("All processes have exited, exiting");
         if let Some(mut child) = _child {
-            child.0.wait().context(ChildWaitSnafu)?.code()
+            Some(child.0.wait().context(ChildWaitSnafu)?)
         } else {
             None
         }

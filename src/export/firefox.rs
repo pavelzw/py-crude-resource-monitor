@@ -1,7 +1,7 @@
 use crate::export::ReportIdentifier;
 use crate::types::JsonLine;
-use flate2::write::GzEncoder;
 use flate2::Compression;
+use flate2::write::GzEncoder;
 use fxprof_processed_profile::{
     CategoryColor, CategoryHandle, CounterHandle, CpuDelta, Frame, FrameFlags, FrameInfo,
     GraphColor, ProcessHandle, Profile, ReferenceTimestamp, SamplingInterval, ThreadHandle,
