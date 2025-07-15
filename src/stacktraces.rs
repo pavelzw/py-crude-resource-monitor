@@ -85,7 +85,7 @@ impl SpyHelper {
         for spy in self.spies.values_mut() {
             let process_traces = spy.get_stack_traces();
             if let Err(e) = process_traces {
-                info!("Sample error {}: {}", spy.pid, e);
+                info!("Sample error {}: {:?}", spy.pid, e);
                 // This might cause null values in the output (i.e. we miss a timestep)!
                 // The viewer must account for that.
                 continue;
