@@ -22,7 +22,7 @@ def generate_data(n: int):
         "name": names * 10,
         "birthdate": birthdays * 10,
         "weight": weight * 10,
-        "height": height * 10
+        "height": height * 10,
     }
 
 
