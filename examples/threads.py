@@ -1,8 +1,13 @@
 import threading
+import os
+
+print(os.getpid())
+
 
 def _dummy():
-    #time.sleep(0.1)
+    # time.sleep(0.1)
     pass
+
 
 for index in range(0, 10_000):
     if index % 1000 == 0:
