@@ -7,9 +7,10 @@ use fxprof_processed_profile::{
     GraphColor, ProcessHandle, Profile, ReferenceTimestamp, SamplingInterval, ThreadHandle,
     Timestamp,
 };
+use log::info;
 use snafu::{Location, OptionExt, ResultExt, Snafu, Whatever};
 use std::borrow::Borrow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::marker::PhantomData;
 use std::path::Path;
@@ -211,13 +212,44 @@ impl<'a> ProfileBuilderProcess<'a, ()> {
         samples: impl Iterator<Item = impl Borrow<JsonLine>>,
     ) -> Result<ProfileBuilderProcess<'a, MainThreadAdded>, Whatever> {
         // adding the main thread first leads to the RAM display corresponding to mainThreadIndex 0 working
-        let main_thread = samples
+        let mut threads = samples
             .flat_map(|line| line.borrow().stacktraces.clone())
-            .find(|stack_trace| stack_trace.thread_name == Some(MAIN_THREAD_NAME.into()))
-            .with_whatever_context(|| format!("no main thread found in process {}", self.pid))?;
+            .map(|it| {
+                (
+                    it.thread_id,
+                    it.thread_name.clone().unwrap_or("unnamed".to_string()),
+                )
+            })
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        // Ensure the report is deterministic
+        threads.sort_by(|(a_id, _), (b_id, _)| a_id.cmp(b_id));
+
+        let main_thread = threads.iter().find(|(_, name)| name == MAIN_THREAD_NAME);
+
+        let (main_thread_id, _) = match main_thread {
+            Some(thread) => thread,
+            None => {
+                let all_threads = threads
+                    .iter()
+                    .map(|(_, name)| name.as_str())
+                    .collect::<Vec<_>>();
+                info!(
+                    "No main thread found in samples, found threads `{}`.",
+                    all_threads.as_slice().join(", ")
+                );
+                let chosen = threads.first().whatever_context("no threads found")?;
+                info!(
+                    "Using first thread `{}` with id `{}` as main thread.",
+                    chosen.1, chosen.0
+                );
+                chosen
+            }
+        };
         let main_thread_handle = self.parent.profile.add_thread(
             self.process,
-            main_thread.thread_id as u32,
+            *main_thread_id as u32,
             self.time(self.start_time_millis),
             true,
         );
@@ -225,7 +257,7 @@ impl<'a> ProfileBuilderProcess<'a, ()> {
             .profile
             .set_thread_name(main_thread_handle, MAIN_THREAD_NAME);
         self.threads
-            .insert(main_thread.thread_id as u32, main_thread_handle);
+            .insert(*main_thread_id as u32, main_thread_handle);
 
         Ok(ProfileBuilderProcess {
             parent: self.parent,
@@ -394,7 +426,7 @@ pub(super) fn export_report(data_dir: &Path, output_path: &Path) -> Result<(), E
 
     write_profile(output_path, profile)?;
 
-    eprintln!(
+    info!(
         "Wrote Firefox profile to {}. Open it in `https://profiler.firefox.com`.",
         output_path.display()
     );
