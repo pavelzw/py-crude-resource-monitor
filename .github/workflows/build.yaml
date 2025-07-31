@@ -59,3 +59,36 @@ jobs:
           path: |
             target/${{ matrix.target }}/release/py-crude-resource-monitor
             target/${{ matrix.target }}/release/py-crude-resource-monitor.exe
+
+  build-static-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+
+      - name: Build prontend
+        run: |
+          # The build.rs does not work in alpine, so we need to do this manually
+          cd frontend
+          pnpm install
+          pnpm build
+
+      - name: Build main program
+        run: |
+          # We skip the frontend build here, as we already did it and it does not work in alpine
+          docker run --rm -v "$PWD:/work" ghcr.io/benfred/rust-musl-cross:x86_64-unknown-linux-musl \
+            bash -c 'cd /work && SKIP_FRONTEND_BUILD=yes cargo build --release --features unwind --target x86_64-unknown-linux-musl'
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-x86_64-unknown-linux-musl
+          path: |
+            target/x86_64-unknown-linux-musl/release/py-crude-resource-monitor

@@ -1,6 +1,9 @@
 use std::process::Command;
 
 fn main() {
+    if std::env::var("SKIP_FRONTEND_BUILD").is_ok() {
+        return;
+    }
     let pnpm_executable = if cfg!(windows) { "pnpm.cmd" } else { "pnpm" };
 
     Command::new(pnpm_executable)
